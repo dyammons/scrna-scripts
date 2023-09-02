@@ -5,28 +5,33 @@ source("./customFunctions.R")
 
 ##### prepare dataset #####
 
-#set output name
+#set output name -- reccomend including data and sample size
 outName <- "experiment1"
 
 #load in 10x data and qc filter each sample -- run with testQC == T, then evaluate, set thresholds, and run with testQC == F
-load10x(din = "./input/", dout = "./output/s1/", outName = outName, testQC = F, 
+load10x(din = "./input/", dout = "./output/s1/", outName = outName, testQC = T, 
         nFeature_RNA_high = 4000, nFeature_RNA_low = 100, percent.mt_high = 12.5, nCount_RNA_high = 30000, nCount_RNA_low = 200)
 
+#integrate the data using Seurat's SCTransformation and intergration workflow
 seu.obj <- sctIntegrate(din = "./output/s1/", dout = "./output/s2/", outName = outName, 
                         vars.to.regress = "percent.mt", nfeatures = 2500)
 
+#unnote code below if resuming following integration in a new session
 # seu.obj <- readRDS(paste0("./output/s2/",  outName,"_seu.integrated.obj_S2.rds"))
+
+#use clustree to identify clustering parameters that appear most appropriate
 clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = outName, 
          test_dims = c(50,45,40), algorithm = 3, prefix = "integrated_snn_res.")
 
+#complete data visulaization
 seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = outName, 
                        final.dims = 45, final.res = 0.6, stashID = "clusterID", algorithm = 3, min.dist = 0.2, n.neighbors = 25,
                        prefix = "integrated_snn_res.", assay = "integrated", 
                        saveRDS = T, return_obj = T, returnFeats = T,
                        
                        features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
-                                    "IL7R", "CAMP", "FLT3", "HLA-DRA", 
-                                    "CD4", "MS4A1", "IL1B","CD68")
+                                     "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
+                                     "CD4", "MS4A1", "PPBP","HBM")
 )
 
 #check QC params
@@ -35,60 +40,63 @@ p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 3, features = features,
                  color = "black", order = F, pt.size = 0.0000001, title.size = 18)
 ggsave(paste("./output/allCells/", outName, "_QC_feats.png", sep = ""), width = 9, height = 3)
 
-
+#if metadata has been entered into refColz.csv then you can load  it in now
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./refColz.csv", groupBy = "orig.ident", metaAdd = "name")
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./refColz.csv", groupBy = "name", metaAdd = "colz")
+
+#Create metadata slot for conditions -- can use grepl as below or add this information into the refColz.csv and load as above
 # seu.obj$cellSource <- ifelse(grepl("oa", seu.obj$orig.ident), "OA", "Normal")
 
+##### remove low quality cells from dataset (if present) #####
 
-### If cluster(s) look to be low quality, use the following code block
+### If cluster(s) look to be low quality, use the following code block; you can always come back if a low quality cluster is identified later on
+# #change output name if desired
+# subName <- outName
 
-#change output name if desired
-subName <- outName
+# seu.obj.sub <- subset(seu.obj, invert = T,
+#                       subset = 
+#                         clusterID ==  "")
+# table(seu.obj.sub$clusterID)
+# table(seu.obj.sub$orig.ident)
 
-seu.obj.sub <- subset(seu.obj, invert = T,
-                      subset = 
-                        clusterID ==  "7")
-table(seu.obj.sub$clusterID)
-table(seu.obj.sub$orig.ident)
+# seu.obj <- indReClus(seu.obj = seu.obj.sub, outDir = "./output/s2/", subName = subName, 
+#                      preSub = T, nfeatures = 2500, vars.to.regress = "percent.mt"
+# )
 
-seu.obj <- indReClus(seu.obj = seu.obj.sub, outDir = "./output/s2/", subName = subName, 
-                     preSub = T, nfeatures = 2500, vars.to.regress = "percent.mt"
-)
+# clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = subName, 
+#          test_dims = 45, algorithm = 3, prefix = "integrated_snn_res.")
 
-clusTree(seu.obj = seu.obj, dout = "./output/clustree/", outName = subName, 
-         test_dims = 45, algorithm = 3, prefix = "integrated_snn_res.")
-
-seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = subName, 
-                       final.dims = 45, final.res = 0.5, min.dist = 0.2, n.neighbors = 25,stashID = "clusterID", algorithm = 3, 
-                       prefix = "integrated_snn_res.",  assay = "integrated", 
-                       saveRDS = T, return_obj = T, returnFeats = T,
+# seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = subName, 
+#                        final.dims = 45, final.res = 0.5, min.dist = 0.2, n.neighbors = 25,stashID = "clusterID", algorithm = 3, 
+#                        prefix = "integrated_snn_res.",  assay = "integrated", 
+#                        saveRDS = T, return_obj = T, returnFeats = T,
                        
-                       features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
-                                    "IL7R", "CAMP", "FLT3", "HLA-DRA", 
-                                    "CD4", "MS4A1", "IL1B","CD68")
-)
+#                        features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
+#                                     "IL7R", "CAMP", "FLT3", "HLA-DRA", 
+#                                     "CD4", "MS4A1", "IL1B","CD68")
+# )
 
 
 #################################
-### BEGIN allCells analysis 1 ###
+###  BEGIN allCells analysis  ###
 #################################
 
+#either load in the processed data from the s3 directory (if started a new session)
 # seu.obj <- readRDS("./output/s3/_S3.rds") # point to output of dataVisUMAP
 # seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./colorID.csv", groupBy = "clusterID", metaAdd = "majorID")
 # seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./colorID.csv", groupBy = "clusterID", metaAdd = "colz")
 outName <- "allCells"
+exptName <- "tdln_4_norm_4_09012023"
 
 
 ### Generate violin plots of defining features
-vilnPlots(seu.obj = seu.obj, groupBy = "clusterID", numOfFeats = 24, outName = "eqsf_n3_n3",
-          outDir = "./output/viln/allCells/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^ENSCAF", "^RPS"), assay = "RNA", 
+vilnPlots(seu.obj = seu.obj, groupBy = "clusterID", numOfFeats = 24, outName = exptName,
+          outDir = "./output/viln/allCells/", outputGeneList = T, filterOutFeats = c("^MT-", "^RPL", "^RPS"), assay = "RNA", 
           min.pct = 0.25, only.pos = T)
-
 
 ### Export data for interactive cell browser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, dir = "./output/cb_input/", 
-               markers = "/pl/active/dow_lab/dylan/eq_synovial_scRNA/analysis/output/viln/allCells/eqsf_n3_n3_gene_list.csv", 
+               markers = paste0("./output/viln/allCells/",exptName,"_gene_list.csv"),
                reduction = "umap",  
                colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", 
                               "majorID", "clusterID", "name", "cellSource"), 
@@ -189,7 +197,7 @@ p <- formatUMAP(pi) + labs(colour="Cell source:") + theme(legend.position = "top
 ggsave(paste("./output/", outName, "/", outName, "_umap_bySample.png", sep = ""), width =7, height = 7)
 
 
-### Stacked bar graph by clusterIDID
+### Stacked bar graph by clusterID
 p <- stackedBar(seu.obj = seu.obj, downSampleBy = "name", groupBy = "name", clusters = "clusterID") + scale_x_discrete(expand = c(0, 0)) +
   # scale_fill_manual(labels = levels(seu.obj$name), 
   #                   values = levels(seu.obj$colz)) + 
@@ -210,7 +218,7 @@ ggsave(paste("./output/", outName, "/", outName, "_stackedBar.png", sep = ""), w
 
 
 
-### Run singleR to use human reference for cell classification
+### Run singleR to use human reference for cell classification -- if prompted to create a directory select "no"
 singleR(seu.obj = seu.obj, outName = outName, clusters = "clusterID", outDir = "./output/singleR/")
 
 
@@ -238,7 +246,7 @@ createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologica
 )
 
 
-pseudoDEG(metaPWD = "/pl/active/dow_lab/dylan/k9_duod_scRNA/analysis/output/pseudoBulk/allCells_deg_metaData.csv", returnDDS = F, 
+pseudoDEG(metaPWD = "./output/allCells/pseudoBulk/allCells_deg_metaData.csv, returnDDS = F, 
           padj_cutoff = 0.05, lfcCut = 0.58, outDir = "./output/allCells/pseudoBulk/", outName = "allCells", 
           idents.1_NAME = "Disease", idents.2_NAME = "Healthy",
           inDir = "./output/allCells/pseudoBulk/", title = "All cells", 
