@@ -95,7 +95,7 @@ vilnPlots(seu.obj = seu.obj, groupBy = "clusterID", numOfFeats = 24, outName = e
           min.pct = 0.25, only.pos = T)
 
 ### Export data for interactive cell browser
-ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, dir = "./output/cb_input/", 
+ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_input/", 
                markers = paste0("./output/viln/allCells/",exptName,"_gene_list.csv"),
                reduction = "umap",  
                colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", 
@@ -308,7 +308,7 @@ vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName
 )
 
 ### Export data for interactive cell browser
-ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, dir = "./output/cb_input/", 
+ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "./output/cb_input/", 
                markers = "/pl/active/dow_lab/dylan/eq_synovial_scRNA/analysis/output/viln/tcell/Aug_8_2023_tcell_gene_list.csv", 
                reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID", "clusterID_sub", "name", "cellSource"), skipEXPR = F,
                test = F,
