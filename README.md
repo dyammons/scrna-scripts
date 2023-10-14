@@ -11,10 +11,10 @@ git clone https://github.com/dyammons/scrna-seq-skeleton-1.git
 
 For standardization of analysis it is reccomended that all analysis be complete on the Alpine supercomputer in a custom Conda environment; however, all required software and code can be installed/run locally in R Studio if prefered.
 To set up the computing enviornment a `.yml` file containing all the information required to build a functional Conda env is provided in the `scRNA_r_env.yml` file.  
-In the cloned repository, run the follinw code to generate the env:
+In the cloned repository, run the following code to generate the env:
 
 ```sh
-conda env create -n scRNA_r_env -f scRNA_r_env.yml ### need to add .yml and test functionality
+conda env create -n scRNA_r_env -f scRNA_r_env.yml ### cannot export the .yml file :(
 ```
 Note: Installation of software can be completed manually using Conda and steps to create a suitable environment are avalible [here](). (TO DO: add actual link....)
 
