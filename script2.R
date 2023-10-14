@@ -5,7 +5,7 @@ source("./customFunctions.R")
 
 ### Subset template
 seu.obj <- readRDS("") #set to pwd for output of integrateData.R
-seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./colorID.csv", groupBy = "clusterID", metaAdd = "majorID")
+seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/colorID.csv", groupBy = "clusterID", metaAdd = "majorID")
 
 #modify these as desired
 outName <- "subset1"
@@ -22,15 +22,15 @@ table(seu.obj$clusterID)
 table(seu.obj$orig.ident)
 
 #complete independent reclustering
-seu.obj <- indReClus(seu.obj = seu.obj, outDir = "../output/s2/", subName = paste(datE,outName,nfeatures, sep = "_") , 
+seu.obj <- indReClus(seu.obj = seu.obj, outDir = "../output/s2/", subName = paste0(datE,outName,nfeatures, sep = "_") , 
                      preSub = T, nfeatures = nfeatures, vars.to.regress = "percent.mt"
 )
 
 # seu.obj <- readRDS("../output/s2/_S2.rds") set to S2 file if needed to resume
-clusTree(seu.obj = seu.obj, dout = "../output/clustree/", outName = paste(datE,outName,nfeatures, sep = "_"), 
+clusTree(seu.obj = seu.obj, dout = "../output/clustree/", outName = paste0(datE,outName,nfeatures, sep = "_"), 
          test_dims = c("40","35", "30"), algorithm = 3, prefix = "integrated_snn_res.")
 
-seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "../output/s3/", outName = paste(datE,outName,nfeatures, sep = "_"), final.dims = 40, final.res = 1.0, stashID = "clusterID_sub", 
+seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "../output/s3/", outName = paste0(datE,outName,nfeatures, sep = "_"), final.dims = 40, final.res = 1.0, stashID = "clusterID_sub", 
                        algorithm = 3, prefix = "integrated_snn_res.", min.dist = 0.3, n.neighbors = 30, assay = "integrated", saveRDS = T,
                        features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
                                     "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
@@ -45,9 +45,11 @@ vilnPlots(seu.obj = seu.obj, groupBy = "clusterID_sub", numOfFeats = 24, outName
 
 ### Export data for interactive cell browser
 ExportToCB_cus(seu.obj = seu.obj, dataset.name = outName, outDir = "../output/cb_input/", 
-               markers = "/pl/active/dow_lab/dylan/eq_synovial_scRNA/analysis/output/viln/tcell/Aug_8_2023_tcell_gene_list.csv", 
-               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", "percent.mt", "Phase", "majorID", "clusterID_sub", "name", "cellSource"), skipEXPR = F,
-               test = F,
+               markers = "../output/viln/subset1/Aug_8_2023_tcell_gene_list.csv", #change path
+               reduction = "umap",  colsTOkeep = c("orig.ident", "nCount_RNA", "nFeature_RNA", 
+                                                   "percent.mt", "Phase", "majorID", 
+                                                   "clusterID_sub", "name", "cellSource"), 
+               skipEXPR = F, test = F,
                feats = c("CD3E", "GZMA", "ADGRG1")
                
 )
@@ -70,7 +72,7 @@ pi <- DimPlot(seu.obj,
 )
 p <- cusLabels(plot = pi, shape = 21, size = 8, alpha = 0.8) + NoLegend()
 # p <- cusLabels(plot = pi, shape = 21, size = 8, alpha = 0.8, labCol = majorColors.df$labCol) + NoLegend()
-ggsave(paste("../output/", outName, "/rawUMAP.png", sep = ""), width = 7, height = 7)
+ggsave(paste0("../output/", outName, "/", outName, "_rawUMAP.png"), width = 7, height = 7)
 
 
 
@@ -83,7 +85,7 @@ features <- c("PRF1","GZMA", "GZMB",
 
 p <- prettyFeats(seu.obj = seu.obj, nrow = 5, ncol =  3, features = features, 
                  color = "black", order = F, pt.size = 0.25, title.size = 14, noLegend = T)
-ggsave(paste("../output/", outName, "/", outName, "_key_feats.png", sep = ""), width = 9, height = 15)
+ggsave(paste0("../output/", outName, "/", outName, "_key_feats.png"), width = 9, height = 15)
 
 
 
@@ -110,7 +112,7 @@ pi <- VlnPlot(object = seu.obj,
                        axis.text.y = element_blank(),
                        axis.title.x = element_blank())
 
-ggsave(paste("../output/", outName, "/", outName, "selectViln.png", sep = ""), width = 5, height =6)
+ggsave(paste0("../output/", outName, "/", outName, "selectViln.png"), width = 5, height =6)
 
 
 ### Reference map using PBMC data
@@ -139,7 +141,7 @@ pi <- DimPlot(seu.obj,
               shuffle = F
 )
 pi <- formatUMAP(plot = pi)
-ggsave(paste("../output/", outName,"/",outName, "_umap_Predicted.png", sep = ""), width = 10, height = 7)
+ggsave(paste0("../output/", outName,"/",outName, "_umap_Predicted.png"), width = 10, height = 7)
 
 
 ### UMAP by sample
@@ -156,7 +158,7 @@ pi <- DimPlot(seu.obj.ds,
 )
 p <- formatUMAP(pi)
 # p <- formatUMAP(pi) + labs(colour="") + theme(legend.position = "top", legend.direction = "horizontal",legend.title=element_text(size=12)) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
-ggsave(paste("../output/", outName, "/", outName, "umap_bySample.png", sep = ""), width =7, height = 7)
+ggsave(paste0("../output/", outName, "/", outName, "umap_bySample.png"), width =7, height = 7)
 
 
 
@@ -165,7 +167,7 @@ freqy <- freqPlots(seu.obj, method = 1, nrow= 3, groupBy = "clusterID_sub", legT
                    namez = "name"#,
                    # colz = "colz"
 )
-ggsave(paste("../output/", outName, "/",outName, "_freqPlots.png", sep = ""), width = 8.5, height = 9)
+ggsave(paste0("../output/", outName, "/",outName, "_freqPlots.png"), width = 8.5, height = 9)
 
 
 
@@ -176,4 +178,4 @@ p <- stackedBar(seu.obj = seu.obj, downSampleBy = "cellSource", groupBy = "name"
                                                            axis.title.x = element_text(size = 14),
                                                            axis.text = element_text(size = 12)) 
 #+ scale_x_discrete(limits=c(),expand = c(0, 0))
-ggsave(paste("../output/", outName,"/",outName, "_stackedBar.png", sep = ""), width =7, height = 5)
+ggsave(paste0("../output/", outName,"/",outName, "_stackedBar.png"), width =7, height = 5)
