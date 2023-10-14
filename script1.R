@@ -3,13 +3,13 @@
 #load custom functions & packages
 source("./customFunctions.R")
 
-##### prepare dataset #####
+##### prepare data set #####
 
-#set output name -- reccomend including data and sample size
+#set output name -- recommend including data and sample size
 outName <- "experiment1"
 
 #load in 10x data and qc filter each sample -- run with testQC == T, then evaluate, set thresholds, and run with testQC == F
-load10x(din = "./input/", dout = "./output/s1/", outName = outName, testQC = T, 
+load10x(din = "../input/", dout = "./output/s1/", outName = outName, testQC = T, 
         nFeature_RNA_high = 4000, nFeature_RNA_low = 100, percent.mt_high = 12.5, nCount_RNA_high = 30000, nCount_RNA_low = 200)
 
 #integrate the data using Seurat's SCTransformation and intergration workflow
