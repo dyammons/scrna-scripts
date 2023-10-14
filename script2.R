@@ -5,7 +5,7 @@ source("./customFunctions.R")
 
 ### Subset template
 seu.obj <- readRDS("") #set to pwd for output of integrateData.R
-seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./colorID.csv", groupBy = "clusterID", metaAdd = "majorID")
+seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/colorID.csv", groupBy = "clusterID", metaAdd = "majorID")
 
 #modify these as desired
 outName <- "subset1"
