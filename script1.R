@@ -38,7 +38,7 @@ seu.obj <- dataVisUMAP(seu.obj = seu.obj, outDir = "./output/s3/", outName = out
 features <- c("nCount_RNA", "nFeature_RNA", "percent.mt")
 p <- prettyFeats(seu.obj = seu.obj, nrow = 1, ncol = 3, features = features, 
                  color = "black", order = F, pt.size = 0.0000001, title.size = 18)
-ggsave(paste("./output/allCells/", outName, "_QC_feats.png", sep = ""), width = 9, height = 3)
+ggsave(paste0("./output/allCells/", outName, "_QC_feats.png"), width = 9, height = 3)
 
 #if metadata has been entered into refColz.csv then you can load  it in now
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/refColz.csv", groupBy = "orig.ident", metaAdd = "name")
@@ -86,7 +86,7 @@ seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/refColz.csv", grou
 # seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/colorID.csv", groupBy = "clusterID", metaAdd = "majorID")
 # seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/colorID.csv", groupBy = "clusterID", metaAdd = "colz")
 outName <- "allCells"
-exptName <- "tdln_4_norm_4_09012023"
+exptName <- "experiment1"
 
 
 ### Generate violin plots of defining features
@@ -125,7 +125,7 @@ pi <- DimPlot(seu.obj,
               repel = TRUE
 )
 p <- cusLabels(plot = pi, shape = 21, size = 8, alpha = 0.8, labCol = "black") + NoLegend()
-ggsave(paste("./output/", outName, "/", outName, "_rawUMAP.png", sep = ""), width = 7, height = 7)
+ggsave(paste0("./output/", outName, "/", outName, "_rawUMAP.png"), width = 7, height = 7)
 
 
 #after setting majorID, run this code some code to load in colors
@@ -142,7 +142,7 @@ ggsave(paste("./output/", outName, "/", outName, "_rawUMAP.png", sep = ""), widt
 #               repel = TRUE
 # )
 # p <- formatUMAP(plot = pi) + NoLegend()
-# ggsave(paste("./output/", outName, "/", outName, "_majorUMAP.png", sep = ""), width = 7, height = 7)
+# ggsave(paste0("./output/", outName, "/", outName, "_majorUMAP.png"), width = 7, height = 7)
 
 
 ### Key feature plots
@@ -163,7 +163,7 @@ title <- c("CD3E","CD8A", "GZMA",
            "AIF1 (Iba1)","MS4A1 (CD20)","JCHAIN")
 
 p <- prettyFeats(seu.obj = seu.obj, nrow = 5, ncol = 3, title.size = 14, features = features, order = F, legJust = "top") 
-ggsave(paste("./output/", outName, "/", outName, "_featPlots.png", sep = ""), width =9, height = 15, scale = 2)
+ggsave(paste0("./output/", outName, "/", outName, "_featPlots.png"), width =9, height = 15, scale = 2)
 
 
 # ### Key dot plot features -- this is best with majorID loaded in
@@ -174,7 +174,7 @@ ggsave(paste("./output/", outName, "/", outName, "_featPlots.png", sep = ""), wi
 #                            "IL17RB", "GATA3", "TOP2A", "CENPF", "CD34", "CD109")
 # ) + theme(axis.title = element_blank(),
 #           axis.text = element_text(size = 12))
-# ggsave(paste("./output/", outName, "/", outName, "_majorDot.png", sep = ""), width =8, height = 6)
+# ggsave(paste0("./output/", outName, "/", outName, "_majorDot.png"), width =8, height = 6)
 
 
 ### UMAP by sample -- if unequal sample size downsample by cellSource
@@ -194,7 +194,7 @@ p <- formatUMAP(pi) + labs(colour="Cell source:") + theme(legend.position = "top
                                                           legend.direction = "horizontal",
                                                           legend.title=element_text(size=12)
                                                           ) + guides(colour = guide_legend(nrow = 1, override.aes = list(size = 4)))
-ggsave(paste("./output/", outName, "/", outName, "_umap_bySample.png", sep = ""), width =7, height = 7)
+ggsave(paste0("./output/", outName, "/", outName, "_umap_bySample.png"), width =7, height = 7)
 
 
 ### Stacked bar graph by clusterID
@@ -204,7 +204,7 @@ p <- stackedBar(seu.obj = seu.obj, downSampleBy = "name", groupBy = "name", clus
   theme(axis.title.y = element_blank(),
         axis.title.x = element_text(size = 14),
         axis.text = element_text(size = 12))
-ggsave(paste("./output/", outName, "/", outName, "_stackedBar.png", sep = ""), width =7, height = 5)
+ggsave(paste0("./output/", outName, "/", outName, "_stackedBar.png"), width =7, height = 5)
 
 
 # ### Stacked bar graph by majorID -- prefered once variable is set
@@ -214,7 +214,7 @@ ggsave(paste("./output/", outName, "/", outName, "_stackedBar.png", sep = ""), w
 #   theme(axis.title.y = element_blank(),
 #         axis.title.x = element_text(size = 14),
 #         axis.text = element_text(size = 12))
-# ggsave(paste("./output/", outName, "/", outName, "_stackedBar.png", sep = ""), width =7, height = 5)
+# ggsave(paste0("./output/", outName, "/", outName, "_stackedBar.png"), width =7, height = 5)
 
 
 
@@ -228,7 +228,7 @@ freqy <- freqPlots(seu.obj, method = 1, nrow= 3,
                    namez = "name" #, 
                    # colz = "colz"
 )
-ggsave(paste("./output/", outName, "/",outName, "_freqPlots.png", sep = ""), width = 12, height = 8)
+ggsave(paste0("./output/", outName, "/",outName, "_freqPlots.png"), width = 12, height = 8)
 
 
 ### Complete linDEG in pseudobulk-type format by all cells
@@ -239,14 +239,12 @@ linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "allCells", co
 
 
 ### Complete pseudobulk DGE by all cells
-
 createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologicalRep = "name", lowFilter = T, dwnSam =F, 
          clusters = NULL, outDir = "./output/allCells/pseudoBulk/", 
          grepTerm = "H", grepLabel = c("Healthy","Disease") # be sure to change this!
 )
 
-
-pseudoDEG(metaPWD = "./output/allCells/pseudoBulk/allCells_deg_metaData.csv, returnDDS = F, 
+pseudoDEG(metaPWD = "./output/allCells/pseudoBulk/allCells_deg_metaData.csv", returnDDS = F, 
           padj_cutoff = 0.05, lfcCut = 0.58, outDir = "./output/allCells/pseudoBulk/", outName = "allCells", 
           idents.1_NAME = "Disease", idents.2_NAME = "Healthy",
           inDir = "./output/allCells/pseudoBulk/", title = "All cells", 
