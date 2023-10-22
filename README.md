@@ -6,7 +6,7 @@ To use this repository, you will need to clone the repo to your working space, c
 There are several ways to clone the repository (including through GitHub Desktop), but here is the command to do it through a linux terminal. If working on Alpine, it would be ideal to clone this to a `Peta Library allocation`, but if that is not avalible `Scratch` or `Projects` directories will also work. If using `Scratch` please note that data is deleted every 90 days, so you will need to complete regular backups and if using `Projects` there is limited storage, so there may not be sufficent room to complete the analysis. 
 
 ```sh
-git clone https://github.com/dyammons/scrna-seq-skeleton-1.git
+git clone https://github.com/dyammons/scrna-scripts.git
 ```
 
 For standardization of analysis it is reccomended that all analysis be complete on the Alpine supercomputer in a custom Conda environment; however, all required software and code can be installed/run locally in R Studio if prefered.
