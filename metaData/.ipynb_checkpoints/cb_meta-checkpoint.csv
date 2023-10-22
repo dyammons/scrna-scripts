@@ -1,0 +1,4 @@
+allCells,clusterID_2_1,"All_cells"
+myeloid,clusterID_sub,"Myeloid_subset"
+tcell,finalHighClusID,"T_cell_subset"
+epithelial,clusterID_sub,"Epithelial_subset"
