@@ -4,6 +4,7 @@ library(Seurat)
 library(tidyverse)
 library(clustree)
 library(stringr)
+# install.packages("remotes")
 # remotes::install_github('chris-mcginnis-ucsf/DoubletFinder')
 library(DoubletFinder)
 library(patchwork)
@@ -11,36 +12,38 @@ library(scales)
 library(cowplot)
 library(ggrepel)
 library(colorspace)
+# install.packages("BiocManager")
 # BiocManager::install("DESeq2")
 library(DESeq2)
 library(pheatmap)
 library(RColorBrewer)
-# remotes::install_github("mojaveazure/seurat-disk")
+# remotes::install_github("mojaveazure/seurat-disk") ## problem with this one; hdf5r related
 library(SeuratDisk)
-# BiocManager::install("SingleR")
+# BiocManager::install("SingleR") ## problem with this one; XVector related
 library(SingleR)
-# BiocManager::install("celldex")
-# library(celldex)
+# BiocManager::install("celldex") ## problem with this one; XVector related
+library(celldex)
 library(viridis)
 library(reshape)
 library(lemon)
+# install.packages("devtools")
 # devtools::install_github("davidsjoberg/ggsankey")
-# library(ggsankey) ##
+library(ggsankey)
 library(msigdbr)
-# BiocManager::install("clusterProfiler")
-library(clusterProfiler) ##
-# BiocManager::install("slingshot")
-# library(slingshot) ##
+# BiocManager::install("clusterProfiler") ## problem with this one; XVector related
+library(clusterProfiler)
+# BiocManager::install("slingshot") ## problem with this one; XVector related
+library(slingshot)
 library(ggpubr)
-# BiocManager::install("scRNAseq")
-library(scRNAseq) ##
+# BiocManager::install("scRNAseq") ## problem with this one; XVector related
+library(scRNAseq)
 # BiocManager::install("scuttle")
-# library(scuttle) ##
+library(scuttle)
 library(ape)
 # BiocManager::install("ggtree")
-library(ggtree) ##
+library(ggtree)
 # BiocManager::install("ComplexHeatmap")
-library(ComplexHeatmap) ##
+library(ComplexHeatmap)
 
 ############ gg_color_hue ############
 
@@ -48,79 +51,31 @@ gg_color_hue <- function(n) {
   hues = seq(15, 375, length = n + 1)
   hcl(h = hues, l = 65, c = 100)[1:n]
 }
-############ hsv2rgb ############
-#taken from: https://datascienceconfidential.github.io/r/graphics/2017/11/23/soothing-pastel-colours-in-r.html
-
-hsv2rgb <- function(x){  
-    # convert an hsv colour to rgb  
-    # input:  a 3 x 1 matrix (same as output of rgb2hsv() function)  
-    # output: vector of length 3 with values in [0,1]    
-        
-    # recover h, s, v values  
-    h <- x[1,1]  
-    s <- x[2,1]  
-    v <- x[3,1]    
-        
-    # follow the algorithm from Wikipedia  
-    C <- s*v   
-        
-    # in R, h takes values in [0,1] rather than [0, 360], so dividing by  
-    # 60 degrees is the same as multiplying by six  
-    hdash <- h*6  
-    X <- C * (1 - abs(hdash %% 2 -1))
-        
-    if (0 <= hdash & hdash <=1) RGB1 <- c(C, X, 0)  
-    if (1 <= hdash & hdash <=2) RGB1 <- c(X, C, 0)  
-    if (2 <= hdash & hdash <=3) RGB1 <- c(0, C, X)  
-    if (3 <= hdash & hdash <=4) RGB1 <- c(0, X, C)  
-    if (4 <= hdash & hdash <=5) RGB1 <- c(X, 0, C)  
-    if (5 <= hdash & hdash <=6) RGB1 <- c(C, 0, X) 
-        
-    # the output is a vector of length 3. This is the most convenient  
-    # format for using as the col argument in an R plotting function 
-    RGB1 + (v-C)
-}
-
-############ pastellize ############
-#taken from: https://datascienceconfidential.github.io/r/graphics/2017/11/23/soothing-pastel-colours-in-r.html
-
-pastellize <- function(x, p){
-    # x is a colour
-    # p is a number in [0,1]
-    # p = 1 will give no pastellization
-  
-    # convert hex or letter names to rgb
-    if (is.character(x)) x <- col2rgb(x)/255
-  
-    # convert vector to rgb
-    if (is.numeric(x)) x <- matrix(x, nr=3)
-  
-    col <- rgb2hsv(x, maxColorValue=1)
-    col[2,1] <- col[2,1]*p
-    col <- hsv2rgb(col)
-  
-    # return in convenient format for plots
-    rgb(col[1], col[2], col[3])
-}
 
 ############ load10x ############
 
 load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
-                     nFeature_RNA_high = 4500, nFeature_RNA_low = 200, nCount_RNA_high = 20000, nCount_RNA_low = 100, percent.mt_high = 10, mt_pattern = "^MT-",
-                     removeDubs = TRUE, removeRBC_pal = TRUE, pal_feats = NULL,
-                     featPlots = c("PTPRC", "CD3E", "CD8A", "GZMA", "IL7R", "ANPEP", "FLT3", "DLA-DRA", "CD4", "MS4A1", "PPBP","HBM"), isolatePalRBC = FALSE){
+                    nFeature_RNA_high = 4500, nFeature_RNA_low = 200, 
+                    nCount_RNA_high = 20000, nCount_RNA_low = 100, 
+                    percent.mt_high = 10, mt_pattern = "^MT-",
+                    nfeatures = 2000,
+                    removeDubs = TRUE, removeRBC_pal = FALSE, 
+                    pal_feats = NULL, isolatePalRBC = FALSE,
+                    featPlots = c("PTPRC", "CD3E", "CD8A", "GZMA", 
+                                  "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
+                                  "CD4", "MS4A1", "PPBP","HBM")
+                   ){
     
     if (testQC == FALSE){
-        print(paste0("The QC parameters are: nFeature_RNA < ", nFeature_RNA_high, " & nFeature_RNA > ", nFeature_RNA_low, " & percent.mt < ", percent.mt_high, " & nCount_RNA < ", nCount_RNA_high," & nCount_RNA > ", nCount_RNA_low, sep = ""))
+        message("The QC parameters are: nFeature_RNA < ", nFeature_RNA_high, " & nFeature_RNA > ", nFeature_RNA_low, " & percent.mt < ", percent.mt_high, " & nCount_RNA < ", nCount_RNA_high," & nCount_RNA > ", nCount_RNA_low)
     }
 
-    fpath <-  paste("./", din,"/", sep = "") 
+    fpath <-  paste0("./", din,"/") 
 
     files <- list.files(path = fpath, pattern=NULL, all.files=FALSE,
                         full.names=F)
 
     df.list <- list()
-    #foreach (infile = files, .combine = 'c') %dopar% {
     for (infile in files) {
         #set up df for export
         if (removeRBC_pal == TRUE){
@@ -132,89 +87,92 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
         }
     
         #set import path
-        pwd <- paste("./", din,"/", infile, sep = "") 
+        pwd <- paste0("./", din,"/", infile) 
   
         #read 10X data
         indata <- Read10X(pwd)
     
         #create seurat object
-        seu_obj <- CreateSeuratObject(counts = indata,
+        seu.obj <- CreateSeuratObject(counts = indata,
                                       project = infile,
                                       min.cells = 3,
                                       min.features = 200)
 
         #Add mitochondrial QC data to seurat metadata
-        seu_obj[["percent.mt"]] <- PercentageFeatureSet(seu_obj, pattern = mt_pattern)
-        seu_obj[["percent.hbm"]] <- PercentageFeatureSet(seu_obj, pattern = "HBM")
-        seu_obj[["percent.ppbp"]] <- PercentageFeatureSet(seu_obj, pattern = "PPBP")
+        seu.obj[["percent.mt"]] <- PercentageFeatureSet(seu.obj, pattern = mt_pattern)
+        seu.obj[["percent.hbm"]] <- PercentageFeatureSet(seu.obj, pattern = "HBM")
+        seu.obj[["percent.ppbp"]] <- PercentageFeatureSet(seu.obj, pattern = "PPBP")
+        
         if(!is.null(pal_feats)){            
-            data <- lapply(pal_feats, function(x){PercentageFeatureSet(seu_obj, pattern = x)})
+            data <- lapply(pal_feats, function(x){PercentageFeatureSet(seu.obj, pattern = x)})
             data <- as.data.frame(bind_cols(data))
-            seu_obj[["percent.pal"]] <- rowSums(data)
+            seu.obj[["percent.pal"]] <- rowSums(data)
         }
     
         #visualize QC metrics as a violin plot
-        outfile <- paste("./",dout,"/", infile,"_QC_S1.png", sep = "") 
-        p <- VlnPlot(seu_obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"))
+        outfile <- paste0("./",dout,"/", infile,"_QC_S1.png") 
+        p <- VlnPlot(seu.obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"))
         ggsave(outfile)
 
         if (testQC == TRUE){
             next
         }
     
-        df[1,1] <- dim(seu_obj)[2]
+        df[1,1] <- dim(seu.obj)[2]
 
         #set QC cutoffs based on above plots ### MODIFY VALUES based on your data!! ###
-        seu_obj <- subset(seu_obj,
+        seu.obj <- subset(seu.obj,
                           subset = nFeature_RNA < nFeature_RNA_high & nFeature_RNA > nFeature_RNA_low &
                           percent.mt < percent.mt_high & nCount_RNA < nCount_RNA_high & nCount_RNA > nCount_RNA_low
                          )
   
         #next steps normalize, scale, and run UMAP
-        seu_obj <- NormalizeData(seu_obj,
+        seu.obj <- NormalizeData(seu.obj,
                                  normalization.method = "LogNormalize",
-                                 Scale.factor = 10000) ###change method to scran???
+                                 Scale.factor = 10000) #default Seurat log normalization appraoch
 
-        seu_obj <- FindVariableFeatures(seu_obj,
+        seu.obj <- FindVariableFeatures(seu.obj,
                                         selection.method = "vst", 
-                                        nfeatures = 2500) #can change number of feats used
+                                        nfeatures = nfeatures) #can change number of feats used; default number selected
   
-        all.genes <- rownames(seu_obj)
-        seu_obj <- ScaleData(seu_obj, features = all.genes)
-        seu_obj <- RunPCA(seu_obj, features = VariableFeatures(object = seu_obj))
-        seu_obj <- FindNeighbors(seu_obj,
+        seu.obj <- ScaleData(seu.obj) #only scales variable features by default
+        seu.obj <- RunPCA(seu.obj) #using the scaled expression of variable features 
+        
+        seu.obj <- FindNeighbors(seu.obj,
                                  dims = 1:10
-                                ) #can change dims
-        seu_obj <- FindClusters(seu_obj,
+                                )
+        
+        seu.obj <- FindClusters(seu.obj,
                                 resolution = 0.1
-                               ) #can change resolution
-        seu_obj <- RunUMAP(seu_obj, 
+                               )
+        
+        seu.obj <- RunUMAP(seu.obj, 
                            dims = 1:15
-                          ) #can change dims
+                          )
 
         #visulize UMAP featPlots
-        outfile <- paste("./",dout,"/", infile,"_featPlotDefault_S1.png", sep = "")
-        p <- FeaturePlot(seu_obj,features = featPlots)
+        outfile <- paste0("./",dout,"/", infile,"_featPlotDefault_S1.png")
+        p <- FeaturePlot(seu.obj,features = featPlots)
         ggsave(outfile, width = 12, height = 8)
         
         #visulize UMAP
-        outfile <- paste("./",dout,"/", infile,"_uMAP_S1.png", sep = "") 
-        p <- DimPlot(seu_obj, reduction = "umap")
+        outfile <- paste0("./",dout,"/", infile,"_uMAP_S1.png") 
+        p <- DimPlot(seu.obj, reduction = "umap")
         ggsave(outfile)
         
         #stash initial cluster IDs
-        seu_obj[["int.clusID"]] <- Idents(object = seu_obj)
+        seu.obj[["int.clusID"]] <- Idents(object = seu.obj)
         
-        df[1,2] <- dim(seu_obj)[2]
+        df[1,2] <- dim(seu.obj)[2]
         
         if (removeRBC_pal == TRUE){
             #find the rbc cluster
-            if(length(AverageExpression(seu_obj, features = "HBM")) != 0){
-                rbc.df <- as.data.frame(AverageExpression(seu_obj, features = "HBM"), header = TRUE)
+            if(length(AverageExpression(seu.obj, features = "HBM")) != 0){
+                rbc.df <- as.data.frame(AverageExpression(seu.obj, features = "HBM"), header = TRUE)
                 rbc.clus <- str_split(as.character(colnames(rbc.df)[max.col(rbc.df,ties.method="first")]),"[.]")[[1]][2]
                 
-                sus.rbc.size <- as.numeric(length(WhichCells(seu_obj, expression = HBM > 0)))
-                sus.rbc.clus.size <- as.numeric(length(WhichCells(seu_obj, idents = rbc.clus )))
+                sus.rbc.size <- as.numeric(length(WhichCells(seu.obj, expression = HBM > 0)))
+                sus.rbc.clus.size <- as.numeric(length(WhichCells(seu.obj, idents = rbc.clus )))
                 
                 sus.rbc.comp.pct <- sus.rbc.size/sus.rbc.clus.size
                 rbc.clus <- ifelse(sus.rbc.comp.pct > 0.8, rbc.clus, "NULL")
@@ -222,12 +180,12 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
             } else{rbc.clus <- "NULL"}
             
             #find the palelet cluster
-            if(length(AverageExpression(seu_obj, features = "PPBP")) != 0){
-                pal.df <- as.data.frame(AverageExpression(seu_obj, features = "PPBP"), header = TRUE)
+            if(length(AverageExpression(seu.obj, features = "PPBP")) != 0){
+                pal.df <- as.data.frame(AverageExpression(seu.obj, features = "PPBP"), header = TRUE)
                 pal.clus <- str_split(as.character(colnames(pal.df)[max.col(pal.df,ties.method="first")]),"[.]")[[1]][2]
                 
-                sus.pal.size <- as.numeric(length(WhichCells(seu_obj, expression = PPBP > 0)))
-                sus.pal.clus.size <- as.numeric(length(WhichCells(seu_obj, idents = pal.clus )))
+                sus.pal.size <- as.numeric(length(WhichCells(seu.obj, expression = PPBP > 0)))
+                sus.pal.clus.size <- as.numeric(length(WhichCells(seu.obj, idents = pal.clus )))
                 
                 sus.pal.comp.pct <- sus.pal.size/sus.pal.clus.size
                 pal.clus <- ifelse(sus.pal.comp.pct > 0.8, pal.clus, "NULL")
@@ -236,117 +194,133 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
             
             if(rbc.clus != "NULL" | pal.clus != "NULL"){
                 if(isolatePalRBC == F){
-                    seu_obj <- subset(seu_obj,
+                    seu.obj <- subset(seu.obj,
                                       subset = int.clusID != pal.clus & int.clusID != rbc.clus)
                 }
                 else{
-                    seu_obj <- subset(seu_obj,
+                    seu.obj <- subset(seu.obj,
                                       subset = int.clusID == pal.clus | int.clusID == rbc.clus)
                 }
-            } else{print("No platelets of rbcs detected in sample!")}
+            } else{message("No platelets of rbcs detected in sample!")}
             
-            df[1,3] <- dim(seu_obj)[2]
+            df[1,3] <- dim(seu.obj)[2]
         }
         
         #next steps complete doublet identification using DoubletFinder
-        sweep.res.list_seu_obj <- paramSweep_v3(seu_obj, PCs = 1:10, sct = FALSE)
-        sweep.stats_seu_obj <- summarizeSweep(sweep.res.list_seu_obj, GT = FALSE)
-        bcmvn_seu_obj <- find.pK(sweep.stats_seu_obj)
-        pk_val <- as.numeric(as.character(bcmvn_seu_obj$pK[bcmvn_seu_obj$BCmetric == max(bcmvn_seu_obj$BCmetric)])) 
-        annotations <- seu_obj@meta.data$seurat_clusters
+        sweep.res.list_seu.obj <- paramSweep_v3(seu.obj, PCs = 1:10, sct = FALSE)
+        sweep.stats_seu.obj <- summarizeSweep(sweep.res.list_seu.obj, GT = FALSE)
+        bcmvn_seu.obj <- find.pK(sweep.stats_seu.obj)
+        pk_val <- as.numeric(as.character(bcmvn_seu.obj$pK[bcmvn_seu.obj$BCmetric == max(bcmvn_seu.obj$BCmetric)])) 
+        annotations <- seu.obj@meta.data$seurat_clusters
         homotypic.prop <- modelHomotypic(annotations)
         
         #determine expected doublet rate -- this formula assumes 0.5% doublet per 1000 cells (lower than 10x recommendation to account for homoypic doublets and cells removed during QC)
-        expceted_dub_rate <- dim(seu_obj)[2]/1000*0.5/100
+        expceted_dub_rate <- dim(seu.obj)[2]/1000*0.5/100
         
-        nExp_poi <- round(expceted_dub_rate*length(seu_obj@meta.data$orig.ident))  ### MODIFY VALUE; should be percentage expected to be doublets based on 10X expected values ###
+        nExp_poi <- round(expceted_dub_rate*length(seu.obj@meta.data$orig.ident))  ### MODIFY VALUE; should be percentage expected to be doublets based on 10X expected values ###
         nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
         
         pN_value <- 0.25 ### MODIFY VALUE as needed ###
         
-        pANN_value <- paste0("pANN_",pN_value,"_",pk_val,'_',nExp_poi, sep = "")
-        seu_obj <- doubletFinder_v3(seu_obj, PCs = 1:10, pN = pN_value, pK = pk_val, nExp = nExp_poi, reuse.pANN = FALSE, sct = FALSE)
-        dfClass <- paste0("DF.classifications_",pN_value,"_",pk_val,'_',nExp_poi, sep = "")
-        dfmeta <- paste0("seu_obj@meta.data$",dfClass, sep = "")
-        seu_obj[["doublet"]] <- eval(parse(text = dfmeta))
+        pANN_value <- paste0("pANN_",pN_value,"_",pk_val,'_',nExp_poi)
+        seu.obj <- doubletFinder_v3(seu.obj, PCs = 1:10, pN = pN_value, pK = pk_val, nExp = nExp_poi, reuse.pANN = FALSE, sct = FALSE)
+        dfClass <- paste0("DF.classifications_",pN_value,"_",pk_val,'_',nExp_poi)
+        dfmeta <- paste0("seu.obj@meta.data$",dfClass)
+        seu.obj[["doublet"]] <- eval(parse(text = dfmeta))
         
         #export UMAP highlighting doublet vs singlet cells
-        outfile <- paste("./",dout,"/", infile,"_DF_S1.png", sep = "") 
-        DimPlot(seu_obj,pt.size = 1,label=TRUE, label.size = 5,reduction = "umap",group.by = dfClass )
+        outfile <- paste0("./",dout,"/", infile,"_DF_S1.png") 
+        DimPlot(seu.obj,pt.size = 1,label=TRUE, label.size = 5,reduction = "umap",group.by = dfClass )
         ggsave(outfile)
         
         if (removeDubs == TRUE){
             #remove putative doublets
-            seu_obj <- subset(seu_obj,
+            seu.obj <- subset(seu.obj,
                               subset = doublet == "Singlet"
                              )
         }    
         
-        #update user
+        #update user log
         if (removeRBC_pal == TRUE){
-            df[1,4] <- dim(seu_obj)[2]
-        } else {df[1,3] <- dim(seu_obj)[2]
+            df[1,4] <- dim(seu.obj)[2]
+        } else {df[1,3] <- dim(seu.obj)[2]
                }
         
         rownames(df) <- infile
         df.list[[which(infile == files)]] <- df
         
+        
+        #next steps normalize, scale, and run UMAP
+        seu.obj <- NormalizeData(seu.obj,
+                                 normalization.method = "LogNormalize",
+                                 Scale.factor = 10000) #default Seurat log normalization appraoch
+
+        seu.obj <- FindVariableFeatures(seu.obj,
+                                        selection.method = "vst", 
+                                        nfeatures = nfeatures) #can change number of feats used; default number selected
+  
+        outfile <- paste0("./",dout,"/", infile,"_varFeatPlot_post_doubletFinder_S1.png")
+        p <- VariableFeaturePlot(seu.obj)
+        ggsave(outfile, width = 7, height = 7)
+        
+        seu.obj <- ScaleData(seu.obj)
+        
         #recluster the data with all unwanted cells removed
-        seu_obj <- RunPCA(seu_obj, features = VariableFeatures(object = seu_obj))
-        seu_obj <- FindNeighbors(seu_obj, 
+        seu.obj <- RunPCA(seu.obj, features = VariableFeatures(object = seu.obj))
+        seu.obj <- FindNeighbors(seu.obj, 
                                  dims = 1:10
                                 ) #can change dims
-        seu_obj <- FindClusters(seu_obj, 
+        seu.obj <- FindClusters(seu.obj, 
                                 resolution = 0.1
                                ) #can change resolution
-        seu_obj <- RunUMAP(seu_obj, 
+        seu.obj <- RunUMAP(seu.obj, 
                            dims = 1:15
                           ) #can change dims
         
-        outfile <- paste("./",dout,"/", infile,"_featPlotDefault_postRBC_pal_rm_S1.png", sep = "")
-        p <- FeaturePlot(seu_obj,features = featPlots)
+        outfile <- paste0("./",dout,"/", infile,"_featPlotDefault_post_doubletFinder_S1.png")
+        p <- FeaturePlot(seu.obj,features = featPlots)
         ggsave(outfile, width = 12, height = 8)
         
         #export final umap
-        outfile <- paste("./",dout,"/", infile,"_uMAP_postRBC_pal_rm_S1.png", sep = "") 
-        DimPlot(seu_obj, reduction = "umap")
+        outfile <- paste0("./",dout,"/", infile,"_uMAP_post_doubletFinder_S1.png") 
+        DimPlot(seu.obj, reduction = "umap")
         ggsave(outfile)
         
         #identify cycling cells
-        seu_obj <- CellCycleScoring(
-            object = seu_obj,
+        seu.obj <- CellCycleScoring(
+            object = seu.obj,
             s.features = cc.genes.updated.2019$s.genes,
             g2m.features = cc.genes.updated.2019$g2m.genes, set.ident = FALSE
         )
         
         #export UMAP with cycling data
-        outfile <- paste("./",dout,"/", infile,"_uMAP_cellCylce_postRBC_pal_rm_S1.png", sep = "") 
-        DimPlot(seu_obj, reduction = "umap", group.by = "Phase")
+        outfile <- paste0("./",dout,"/", infile,"_uMAP_cellCylce_post_doubletFinder_S1.png") 
+        DimPlot(seu.obj, reduction = "umap", group.by = "Phase")
         ggsave(outfile)
         
         #store cell cycle state
-        seu_obj[["clusters"]] <- Idents(object = seu_obj)
+        seu.obj[["clusters"]] <- Idents(object = seu.obj)
         
         #export processed seurat object as an .RDS file
-        outfile <- paste("./",dout,"/", infile,"_S1.rds", sep = "") 
-        saveRDS(seu_obj, file = outfile)
+        outfile <- paste0("./",dout,"/", infile,"_S1.rds") 
+        saveRDS(seu.obj, file = outfile)
     }
     
     cellCounts <- do.call(rbind, df.list)
-    outfile <- paste("./",dout,"/", outName, "_cell_counts_S1.csv", sep = "")
+    outfile <- paste0("./",dout,"/", outName, "_cell_counts_S1.csv")
     write.csv(cellCounts, file = outfile)
 }
 
 ############ sctIntegrate ############
 
 sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.regress = c("percent.mt"), nfeatures = 2000,
-                         featTOexclude = NULL, pattern = "S1.rds", returnObj = T
+                         featTOexclude = NULL, pattern = "S1.rds", returnObj = TRUE
                         ) {
     #get seurat objects to process and integrate
-    fpath <- paste("./", din,"/", sep = "") 
+    fpath <- paste0("./", din,"/") 
     files <- list.files(path = fpath, pattern = pattern, all.files=FALSE,
                         full.names=TRUE)
-
+    
     create.seu.call <- function(x) {
         readRDS(x)
     }
@@ -358,25 +332,24 @@ sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.reg
     seu.obj <- lapply(seu.obj, 
                       SCTransform, 
                       vars.to.regress = vars.to.regress,
-                      verbose = TRUE,
-                      conserve.memory=TRUE)
+                      verbose = TRUE
+                     )
 
     SelectedFeatures <- SelectIntegrationFeatures(object.list = seu.obj,
                                                   nfeatures = nfeatures) 
+    message(paste0("NOTE: ", length(SelectedFeatures), " features identified as anchors and will be used for integration."))
     
     if(!is.null(featTOexclude)){
         SelectedFeatures <- SelectedFeatures[!SelectedFeatures %in% featTOexclude]
         if(nfeatures != length(SelectedFeatures)){
-            message <- paste("NOTE: ", featTOexclude, " was/were excluded from the variable features used in integration!",sep = "")
-            print(message)
+            message(paste0("NOTE: ", featTOexclude, " was/were excluded from the variable features used in integration!"))
             SelectedFeatures <- SelectIntegrationFeatures(object.list = seu.obj,
                                                           nfeatures = nfeatures+(nfeatures-length(SelectedFeatures))
                                                          )
             SelectedFeatures <- SelectedFeatures[!SelectedFeatures %in% featTOexclude]
             
         }else{
-            message <- paste("NOTE: The features to exclude (", featTOexclude, ") was/were not included in the variable features used in integration, so the option was not used.",sep = "")
-            print(message)
+            message(paste0("NOTE: The feature(s) to exclude (", featTOexclude, ") was/were not included in the variable features used in integration, so the option was not used."))
         }
     }
     
@@ -413,12 +386,12 @@ sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.reg
     seu.integrated.obj <- RunPCA(seu.integrated.obj)
 
     p <- ElbowPlot(seu.integrated.obj, ndims = 50)
-    outfile <- paste(dout, outName, "_seu.integrated.obj_S2_elbow.png", sep = "")
+    outfile <- paste0(dout, outName, "_seu.integrated.obj_S2_elbow.png")
     ggsave(outfile)
 
     DefaultAssay(seu.integrated.obj) <- "integrated"
 
-    outfile <- paste(dout, outName, "_seu.integrated.obj_S2.rds", sep = "")
+    outfile <- paste0(dout, outName, "_seu.integrated.obj_S2.rds")
     saveRDS(seu.integrated.obj, file = outfile)
     
     if(returnObj){
@@ -437,9 +410,9 @@ clusTree <- function(seu.obj = NULL, dout = "./output/", outName = "", test_dims
         seu.test <- FindNeighbors(object = seu.obj, dims = 1:dimz)
         seu.test <- FindClusters(object = seu.test, algorithm = algorithm, resolution = resolution)
         
-        p <- clustree::clustree(seu.test, prefix = prefix) + ggtitle(paste0("The number of dims used:", dimz, sep = ""))
+        p <- clustree::clustree(seu.test, prefix = prefix) + ggtitle(paste0("The number of dims used:", dimz))
         
-        outfile <- paste(dout,dimz ,"_clustree_", outName,".png", sep = "") 
+        outfile <- paste0(dout,dimz ,"_clustree_", outName,".png") 
         png(file = outfile, height = 1100, width = 2000)
         print(p)
         dev.off()
@@ -468,7 +441,7 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL, outDir = "", outName = "", 
     seu.integrated.obj <- FindClusters(object = seu.integrated.obj, algorithm = algorithm, resolution = final.res)
 
     #choose appropriate clustering resolution
-    res <- paste(prefix, final.res,sep = "") 
+    res <- paste0(prefix, final.res,sep = "") 
     seu.integrated.obj <- SetIdent(object = seu.integrated.obj, value = res)
     
     # Run UMAP embedding
@@ -487,18 +460,18 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL, outDir = "", outName = "", 
     seu.integrated.obj <- BuildClusterTree(seu.integrated.obj, assay = "RNA", dims = 1:final.dims)
 
     #export UMAP colored by sample ID and cluster
-    outfile <- paste(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_cluster_S3.png", sep = "") 
+    outfile <- paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_cluster_S3.png") 
     p <- DimPlot(seu.integrated.obj, label = TRUE, reduction = "umap", group.by = stashID)
     ggsave(outfile)
     
-    outfile <- paste(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_sample_S3.png", sep = "") 
+    outfile <- paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_sample_S3.png") 
     p <- DimPlot(seu.integrated.obj, reduction = "umap", group.by = "orig.ident")
     ggsave(outfile)
 
     if(returnFeats == T){
      
         #visulize UMAP featPlots
-        outfile <- paste(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_featPlotDefault_S3.png", sep = "")
+        outfile <- paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_featPlotDefault_S3.png")
         p <- FeaturePlot(seu.integrated.obj,features = features)
         ggsave(outfile, width = 12, height = 8)
     }
@@ -509,7 +482,7 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL, outDir = "", outName = "", 
 
     #save seurat object as rds
     if(saveRDS == T){
-        outfile <- paste(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors,"_S3.rds", sep = "")
+        outfile <- paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors,"_S3.rds")
         saveRDS(seu.integrated.obj, file = outfile)
     }
     
@@ -519,16 +492,15 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL, outDir = "", outName = "", 
 }
 
 
-
 ############ indReClus ############
 #adopteed from final post on Dec 4, 2021  at https://github.com/satijalab/seurat/issues/1883
 indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", subName = "", preSub = F, seu.list = NULL, featTOexclude = NULL, nfeatures = 2000, k = NULL, saveRDS = T, returnObj = T,ndims = 50,
                       vars.to.regress = "percent.mt", z = 30
                        ) {
     
-    #print(paste0("The seurat object loaded: ", seu.obj, sep = ""))
-    #print(paste0("The seurat object will be subset on: ", sub, sep = ""))
-    print(paste0("The subclustered object will be output as: ", outDir, subName,"_S2.rds", sep = ""))
+    #print(paste0("The seurat object loaded: ", seu.obj))
+    #print(paste0("The seurat object will be subset on: ", sub))
+    print(paste0("The subclustered object will be output as: ", outDir, subName,"_S2.rds"))
     
     #read in data
     if(preSub == F){
@@ -564,14 +536,14 @@ indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", 
     if(!is.null(featTOexclude)){
         SelectedFeatures <- SelectedFeatures[!SelectedFeatures %in% featTOexclude]
         if(nfeatures != length(SelectedFeatures)){
-            message <- paste("NOTE: ", featTOexclude, " was/were excluded from the variable features used in integration!",sep = "")
+            message <- paste0("NOTE: ", featTOexclude, " was/were excluded from the variable features used in integration!",sep = "")
             print(message)
             SelectedFeatures <- SelectIntegrationFeatures(object.list = seu.obj,
                                                           nfeatures = nfeatures+(nfeatures-length(SelectedFeatures))
                                                          )
             SelectedFeatures <- SelectedFeatures[!SelectedFeatures %in% featTOexclude]
         }else{
-            message <- paste("NOTE: The features to exclude (", featTOexclude, ") was/were not included in the variable features used in integration, so the option was not used.",sep = "")
+            message <- paste0("NOTE: The features to exclude (", featTOexclude, ") was/were not included in the variable features used in integration, so the option was not used.",sep = "")
             print(message)
         }
     }
@@ -615,14 +587,14 @@ indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", 
     seu.integrated.obj <- RunPCA(seu.integrated.obj)
 
 
-    outfile <- paste(outDir, subName,"_S2_elbow.png", sep = "")
+    outfile <- paste0(outDir, subName,"_S2_elbow.png")
     p <- ElbowPlot(seu.integrated.obj, ndims = ndims)
     ggsave(outfile)
 
     DefaultAssay(seu.integrated.obj) <- "integrated"
 
     if(saveRDS){
-        outfile <- paste(outDir, subName,"_S2.rds", sep = "")
+        outfile <- paste0(outDir, subName,"_S2.rds")
         saveRDS(seu.integrated.obj, file = outfile)
     }
     
@@ -810,11 +782,11 @@ linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clus
         
                
         if(length(na.omit(avg.seu.sub$lab)) > 0 | forceReturn == T){
-            outfile <- paste(outDir,outName, "_", x,"_linear_deg_by_", groupBy,".png", sep = "") 
+            outfile <- paste0(outDir,outName, "_", x,"_linear_deg_by_", groupBy,".png") 
         
             p <- ggplot(data=avg.seu.sub, aes(x = X, y = Y, label=lab)) + 
             ggtitle(x, 
-                    if(subtitle) {subtitle = paste("Average gene expression (", levels(seu.sub)[2]," vs ", levels(seu.sub)[1],")", sep = "")}
+                    if(subtitle) {subtitle = paste0("Average gene expression (", levels(seu.sub)[2]," vs ", levels(seu.sub)[1],")")}
                      #paste("Cluster",x, sep = " "),
                     ) +
             geom_point(color = avg.seu.sub$lab_col) + 
@@ -890,7 +862,7 @@ cusLabels <- function(plot = NULL, shape = 21, labCol = "black", size = 8, alpha
     #pointData$group <- as.factor(pointData$group)
     
     labCords <- as.data.frame(g$data[2]) #add error if labels are not present
-    labCordz <- labCords[,c(1:4,7)]
+    labCordz <- labCords[,c("fill","x","y","label","colour")]
 
     colnames(labCordz) <- c("colour", "UMAP1", "UMAP2", "clusterID", "labCol")
 #     labCordz$clusterID <- as.character(labCordz$clusterID)
