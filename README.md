@@ -3,7 +3,7 @@ This repository contains the instructions to create the expected directory struc
 Purpose: facilitate the generation of uniform preliminary analysis across projects and promote an understanding of the computational steps involved in scRNA-seq analysis.  
 
 
-## Supplemental data and potential uses:
+## Order of operations:
 1. [Get the scripts](#set-up-the-directory-structure-and-get-scripts)
 2. [Collected count matricies](#bring-count-matricies-into-the-input-directory)
 3. [Collect the container](#collect-the-software-container)
