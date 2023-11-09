@@ -8,7 +8,7 @@ source("./customFunctions.R")
 ######### MODIFY #########
 
 #set output name -- recommend including data and sample size
-experiment <- "bm_cd34_analysis_102723"
+experiment <- "pbmc_analysis_110723"
 outName <- "allCells"
 testQC <- F
 nFeature_RNA_high <- 5500
@@ -17,7 +17,7 @@ percent.mt_high <- 12.5
 nCount_RNA_high <- 60000
 nCount_RNA_low <- 200
 
-# ######### END MODIFY #########
+########## END MODIFY #########
 
 if(testQC){
     #load in 10x data and qc filter each sample -- run with testQC == T, then evaluate, set thresholds, and run with testQC == F
