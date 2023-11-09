@@ -1,6 +1,16 @@
-# Single-cell RNA sequencing repository for preliminary R analysis
-This repository contains the instructions to create a directory structure for analysis and pull down Singularity container to run a Seurat pipeline to integrate multiple samples into one dataset.
-Useage is intended to facilitate the generation of uniform preliminary analysis across projects and promote an understanding of the computational steps involved in scRNA-seq analysis.  
+# Repository containing code and instructions to complete preliminary analysis of single-cell RNA sequencing data in R 
+This repository contains the instructions to create the expected directory structure, pull down a Singularity container, and to run a Seurat pipeline that will integrate multiple samples into one dataset.
+Purpose: facilitate the generation of uniform preliminary analysis across projects and promote an understanding of the computational steps involved in scRNA-seq analysis.  
+
+
+## Supplemental data and potential uses:
+1. [Get the scripts](#set-up-the-directory-structure-and-get-scripts)
+2. [Collected count matricies](#bring-count-matricies-into-the-input-directory)
+3. [Collect the container](#collect-the-software-container)
+4. [Test the software container](#test-the-software-container)
+5. [Load in data and plot QC parameters](#load-in-data-and-plot-QC-parameters)
+6. [Set thresholds and create a metadata file](#set-thresholds-and-create-a-metadata-file)
+7. [Modify the provided `.sbatch` file and submit the job](#modify-the-provided-sbatch-file-and-submit-the-job)
 
 To use this repository, you will need to clone the repo to your working space, pull down a Singularity container a computing environement with required software, and provide count matricies as an input.
 
@@ -96,6 +106,7 @@ done
 <p>
 
 ```sh
+
 #!/usr/bin/env bash
 
 ###MODIFY as needed!
@@ -115,6 +126,7 @@ for val in "${StringArray[@]}"; do
   filez="/scratch/alpine/dyammons@colostate.edu/proj03_k9_duod/02_scripts/$val/outs/filtered_feature_bc_matrix/*"
   cp $filez $folder
 done
+
 ```
 
 </p>
@@ -148,6 +160,8 @@ cp /scratch/alpine/dyammons@colostate.edu/dump/scrna-scripts/r4.3.1-seurat_v1.si
 </p>
 </details>
 
+## Test the software container
+
 Let's make sure we can enter the container and the software is accessible for our use.  
 To do this we will launch a shell. This is very similar to what `conda activate env` would do if you are familiar with `conda`.
 ```sh
@@ -161,6 +175,8 @@ R
 source("./customFunctions.R")
 ```
 
+## Load in data and plot QC parameters
+
 If all the packages load in no problem, then we are good to move forward!
 
 Since we are already in the container, let's run the code to generate the QC paramters so we can set threshold for the pipeline.
@@ -172,6 +188,8 @@ load10x(din = "../input/", dout = "../output/s1/", outName = "qc_test", testQC =
 We can now use our file navigator panel to inspect the QC plots (`../output/s1`).
 
 View the files and decide on thresholds. Err on the side of caution and set them permissively as we can always go back and increase the stringency later on.
+
+## Set thresholds and create a metadata file
 
 We will code in the thresholds by opening the `script1.R` file and customizing the `MODIFY` section of the script.
 ```r
@@ -190,14 +208,12 @@ nCount_RNA_low <- 200
 ########## END MODIFY #########
 ```
 
-With the sif downloaded we are ready to run the code. Before submitting a job,
-
 Lastly, we will enter in some metadata that will be used to colorize the samples and get short sample names loaded in.
 
 To do this we will open the `./metaData/refColz.csv` in a text editor and modify it as desired.
 The columns `orig.ident` should exactly match the samples names as defined in the `input` sub-directories. The `name` column can be anything you want, typically a short hand for the sample name.
 
-Once the values are entered in the Rscript and the metadata is entered we are ready to run the preliminary script.
+Once the values are entered in the Rscript and the metadata is entered we are ready to run the preliminary script. So, let's exit the container and prepare the `.sbatch` file.
 
 ```sh
 #get out of the container
@@ -206,7 +222,14 @@ n
 exit
 ```
 
-Run a job with this script. Run from inside the scripts directory.
+## Modify the provided `cute_seurat.sbatch` file and submit the job
+
+Open `cute_seurat.sbatch` in a text editor and modify it as desired.
+Key parts to modify are:
+ * `ntasks` the current default it set to 10. This worked will for 6 samples, will need to scale up running more samples.
+ * `time` 2 hours should be good, but if running > 10 samples, may want to increase
+ * `mail-user` change this one to your email so I don't get a notification that you ran a job (unless you want me to know)
+
 ```sh
 #!/usr/bin/env bash
 
@@ -224,9 +247,18 @@ Run a job with this script. Run from inside the scripts directory.
 #SBATCH --output=seu_prelim_%j.log  #modify as desired - will output a log file where the "%j" inserts the job ID number
 
 ######### Instructions ###########
+module purge
 
 #run R script
-singularity exec -B  r4.3.1-seurat.sif Rscript script1.R
+singularity exec -B  $PWD/../ r4.3.1-seurat.sif Rscript script1.R
 
 ```
+
+Submit the job with:
+```sh
+sbatch cute_seurat.sbatch
+```
+
+The job should be competed in 1-3 hours depending on the number of samples you are integrating.
+
 Questions? Submit an issue or reach out to Dylan Ammons directly.
