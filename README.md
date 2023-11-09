@@ -250,7 +250,7 @@ Key parts to modify are:
 module purge
 
 #run R script
-singularity exec -B  $PWD/../ r4.3.1-seurat.sif Rscript script1.R
+singularity exec -B  $PWD/../ r4.3.1-seurat_v1.sif Rscript script1.R
 
 ```
 
