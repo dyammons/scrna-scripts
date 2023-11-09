@@ -10,7 +10,7 @@ Purpose: facilitate the generation of uniform preliminary analysis across projec
 4. [Test the software container](#test-the-software-container)
 5. [Load in data and plot QC parameters](#load-in-data-and-plot-QC-parameters)
 6. [Set thresholds and create a metadata file](#set-thresholds-and-create-a-metadata-file)
-7. [Modify the provided `.sbatch` file and submit the job](#modify-the-provided-sbatch-file-and-submit-the-job)
+7. [Modify the provided `.sbatch` file and submit the job](#modify-the-provided-cute_seuratsbatch-file-and-submit-the-job)
 
 To use this repository, you will need to clone the repo to your working space, pull down a Singularity container a computing environement with required software, and provide count matricies as an input.
 
