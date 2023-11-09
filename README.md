@@ -4,6 +4,8 @@ Purpose: facilitate the generation of uniform preliminary analysis across projec
 
 
 ## Order of operations:
+To use this repository, you will need to clone the repo to your working space, pull down a Singularity container with required software pre-installed, and provide count matrices as an input.
+
 1. [Get the scripts](#set-up-the-directory-structure-and-get-scripts)
 2. [Collected count matricies](#bring-count-matricies-into-the-input-directory)
 3. [Collect the container](#collect-the-software-container)
@@ -11,8 +13,6 @@ Purpose: facilitate the generation of uniform preliminary analysis across projec
 5. [Load in data and plot QC parameters](#load-in-data-and-plot-QC-parameters)
 6. [Set thresholds and create a metadata file](#set-thresholds-and-create-a-metadata-file)
 7. [Modify the provided `.sbatch` file and submit the job](#modify-the-provided-cute_seuratsbatch-file-and-submit-the-job)
-
-To use this repository, you will need to clone the repo to your working space, pull down a Singularity container a computing environement with required software, and provide count matricies as an input.
 
 <br>
 
@@ -41,11 +41,15 @@ Go up a level and you should now see `input` and `output` in addition to the ori
 ```sh
 cd ..
 ls
-
+#input  output  scrna-scripts
 ```
 
 The directory stucture in `output` will look something like this:
+<details><summary>Show directory tree</summary>
+<p>
+    
 ```sh
+
 output/
 ├── allCells
 │   ├── linDEG
@@ -60,12 +64,21 @@ output/
 ├── singleR
 └── viln
     └── allCells
+
 ```
+
+</p>
+</details>
 
 ## Bring count matricies into the input directory
 
 You will now need to copy your single-cell count matrices in the `input` directory. File structure within `input` should be such that each sample has its own directory with the corresponding `features.tsv.gz`, `matrix.mtx.gz`, and `barcodes.tsv.gz` (dir tree below).
+
+<details><summary>Show expected directory structure</summary>
+<p>
+    
 ```sh
+
 input/
 ├── sample1
 │   ├── barcodes.tsv.gz
@@ -80,7 +93,13 @@ input/
 │   ├── features.tsv.gz
 │   └── matrix.mtx.gz
 └── ...
+
 ```
+
+</p>
+</details>
+
+<br> 
 
 It is best to avoid moving files manually, so here is the approach I commonly use.
 ```sh
@@ -105,6 +124,12 @@ done
 <details><summary>Code as a script</summary>
 <p>
 
+Create a script file.
+```sh
+nano getData.sh
+```
+
+Copy the contents below then MODIFY paths are needed for your directory structure.
 ```sh
 
 #!/usr/bin/env bash
@@ -127,6 +152,12 @@ for val in "${StringArray[@]}"; do
   cp $filez $folder
 done
 
+```
+
+Run the script to move the files to the required location (expects to be run the `input` directory).
+```sh
+cd input
+nano getData.sh
 ```
 
 </p>
