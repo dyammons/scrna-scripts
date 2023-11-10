@@ -7,7 +7,7 @@ Purpose: facilitate the generation of uniform preliminary analysis across projec
 To use this repository, you will need to clone the repo to your working space, pull down a Singularity container with required software pre-installed, and provide count matrices as an input.
 
 1. [Get the scripts](#set-up-the-directory-structure-and-get-scripts)
-2. [Collected count matricies](#bring-count-matricies-into-the-input-directory)
+2. [Collect count matricies](#bring-count-matricies-into-the-input-directory)
 3. [Collect the container](#collect-the-software-container)
 4. [Test the software container](#test-the-software-container)
 5. [Load in data and plot QC parameters](#load-in-data-and-plot-QC-parameters)
