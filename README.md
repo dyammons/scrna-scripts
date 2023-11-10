@@ -103,20 +103,23 @@ input/
 
 It is best to avoid moving files manually, so here is the approach I commonly use.
 ```sh
+#indicate path to directory containing the output files
+path=/scratch/alpine/$USER/project_01/02_scripts
+
 #set string array with names of dirs you want to get data from
-dirs=$( ls -l /scratch/alpine/$USER/project_01/02_scripts | grep "^d" | awk '{print $9}' )
+dirs=$( ls -l $path | grep "^d" | awk '{print $9}' )
 declare -a StringArray=($dirs)
 ```
 
 ```sh
 cd input
 
-#loop through the array create sample sub-directories thene copy the filtered_feature_bc_matrix
+#loop through the array to create sample sub-directories then copy the filtered_feature_bc_matrix
 for val in "${StringArray[@]}"; do
-  folder="./input/$val/"
+  folder="./$val/"
   mkdir $folder
   
-  filez="/scratch/alpine/dyammons@colostate.edu/proj03_k9_duod/02_scripts/$val/outs/filtered_feature_bc_matrix/*"
+  filez="$path/$val/outs/filtered_feature_bc_matrix/*"
   cp $filez $folder
 done
 ```
@@ -129,28 +132,41 @@ Create a script file.
 nano getData.sh
 ```
 
-Copy the contents below then MODIFY paths are needed for your directory structure.
+Copy the contents below then MODIFY paths as needed for your directory structure.
 ```sh
 
 #!/usr/bin/env bash
 
 ###MODIFY as needed!
 ###Useage: bash getData.sh
-###Run this in the main analysis directory (or change the paths in the code as needed.
+###Run this in the input directory (or change the paths in the code as needed).
+
+
+### User input ###
+
+#indicate path to directory containing the output files
+path=/scratch/alpine/$USER/project_01/02_scripts
+
+### END User input ###
+
+
+
+### CODE ###
 
 #set string array with names of dirs you want to get data from
-dirs=$( ls -l /scratch/alpine/$USER/project_01/02_scripts | grep "^d" | awk '{print $9}' )
+dirs=$( ls -l $path | grep "^d" | awk '{print $9}' )
 declare -a StringArray=($dirs)
-#mkdir input
 
-#loop through the array create sample sub-directories thene copy the filtered_feature_bc_matrix
+#loop through the array to create sample sub-directories then copy the filtered_feature_bc_matrix
 for val in "${StringArray[@]}"; do
-  folder="./input/$val/"
+  folder="./$val/"
   mkdir $folder
   
-  filez="/scratch/alpine/dyammons@colostate.edu/proj03_k9_duod/02_scripts/$val/outs/filtered_feature_bc_matrix/*"
+  filez="$path/$val/outs/filtered_feature_bc_matrix/*"
   cp $filez $folder
 done
+
+### END CODE ###
 
 ```
 
