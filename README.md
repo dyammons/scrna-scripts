@@ -102,6 +102,13 @@ input/
 <br> 
 
 It is best to avoid moving files manually, so here is the approach I commonly use.
+
+Navigate into `input`.
+```sh
+cd input
+```
+
+Create a string array that contains the sample names.
 ```sh
 #indicate path to directory containing the output files
 path=/scratch/alpine/$USER/project_01/02_scripts
@@ -111,9 +118,8 @@ dirs=$( ls -l $path | grep "^d" | awk '{print $9}' )
 declare -a StringArray=($dirs)
 ```
 
+Copy the data over.
 ```sh
-cd input
-
 #loop through the array to create sample sub-directories then copy the filtered_feature_bc_matrix
 for val in "${StringArray[@]}"; do
   folder="./$val/"
@@ -170,10 +176,9 @@ done
 
 ```
 
-Run the script to move the files to the required location (expects to be run the `input` directory).
+Run the script in `input` to move the files to the required location.
 ```sh
-cd input
-nano getData.sh
+bash getData.sh
 ```
 
 </p>
@@ -185,18 +190,26 @@ nano getData.sh
 
 With the input datasets in place we are nearly ready to get the code running! The next step is to get the `Singularity` container we will be using to run the script.  
 So, let's pull it down from syslabs:
-```sh
-#establish the connection to syslabs
-apptainer remote add --no-login SylabsCloud cloud.sycloud.io
-apptainer remote use SylabsCloud
-```
+
 ```sh
 #move into the scripts dir and pull down the sif
 cd scrna-scripts/
 singularity pull --arch amd64 library://dyammons/r-env/r4.3.1-seurat:v1
 ```
 
-<details><summary>If the above fails you can cp a copy from my scratch space.</summary>
+<details><summary>If pull fails, try running this then the above code again.</summary>
+<p>
+    
+```sh
+#establish the connection to syslabs
+apptainer remote add --no-login SylabsCloud cloud.sycloud.io
+apptainer remote use SylabsCloud
+```
+
+</p>
+</details>
+
+<details><summary>If all of the above fails you can cp a copy from my scratch space.</summary>
 <p>
   
 ```sh
