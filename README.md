@@ -278,6 +278,7 @@ Key parts to modify are:
 #SBATCH --output=seu_prelim_%j.log  #modify as desired - will output a log file where the "%j" inserts the job ID number
 
 ######### Instructions ###########
+#remove any loaded software
 module purge
 
 #run R script
