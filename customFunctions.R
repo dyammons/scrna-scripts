@@ -17,9 +17,9 @@ library(colorspace)
 library(DESeq2)
 library(pheatmap)
 library(RColorBrewer)
-# remotes::install_github("mojaveazure/seurat-disk")
+# remotes::install_github("mojaveazure/seurat-disk") ## problem with this one; hdf5r related
 library(SeuratDisk)
-# BiocManager::install("SingleR")
+# BiocManager::install("SingleR") ## problem with this one; XVector related
 library(SingleR)
 # BiocManager::install("celldex")
 library(celldex)
