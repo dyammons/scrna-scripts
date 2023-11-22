@@ -526,7 +526,7 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL,
     }
 
     #perform clustering: Neighbor finding and resolution parameters
-    DefaultAssay(seu.integrated.obj ) <- assay
+    DefaultAssay(seu.integrated.obj) <- assay
     seu.integrated.obj <- FindNeighbors(object = seu.integrated.obj, dims = 1:final.dims)
     seu.integrated.obj <- FindClusters(object = seu.integrated.obj, algorithm = algorithm, resolution = final.res)
 
@@ -800,7 +800,7 @@ prettyFeats <- function(seu.obj = NULL, nrow = 3, ncol = NULL, features = "", co
 #features to add
 #error if more than 2 levels ORR make if so user specifies compatisipon
 
-linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clusterID", comparision = "cellSource", outDir = "./output/", outName = "", cluster = NULL, labCutoff = 20,noTitle = F,
+linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clusterID", comparison = "cellSource", outDir = "./output/", outName = "", cluster = NULL, labCutoff = 20,noTitle = F,
                    colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, pValCutoff = 0.01, flipLFC = F, saveGeneList = F, addLabs = ""
                   ) {
     
@@ -812,7 +812,7 @@ linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clus
         
         seu.sub <- subset(seu.obj, idents = x)
         seu.sub@meta.data[[groupBy]] <- droplevels(seu.sub@meta.data[[groupBy]])
-        geneList <- vilnSplitComp(seu.obj = seu.sub, groupBy = groupBy, refVal = comparision, outDir = outDir, outName = outName, 
+        geneList <- vilnSplitComp(seu.obj = seu.sub, groupBy = groupBy, refVal = comparison, outDir = outDir, outName = outName, 
                                   saveOut = F, saveGeneList = saveGeneList, returnGeneList = T
                                  ) 
         geneList <- geneList[[1]]
@@ -822,7 +822,7 @@ linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clus
         }
         geneList$gene <- rownames(geneList)
         
-        Idents(seu.sub) <- comparision
+        Idents(seu.sub) <- comparison
         avg.seu.sub <- log1p(AverageExpression(seu.sub, verbose = FALSE)$RNA)
         avg.seu.sub <- as.data.frame(avg.seu.sub)
         avg.seu.sub <- avg.seu.sub[!grepl("ENSCAFG", row.names(avg.seu.sub)),] #make better
@@ -1676,7 +1676,7 @@ btwnClusDEG <- function(seu.obj = NULL,groupBy = "majorID_sub", idents.1 = NULL,
     if(doLinDEG == T){
         seu.sub.clean$compareLinDEG <- ifelse(grepl(grepTerm, seu.sub.clean@meta.data$clusterID), "idents.1", "idents.2")
         seu.sub.clean$groupz <- "cellz"
-        linDEG(seu.obj = seu.sub.clean, threshold = 1, thresLine = T, groupBy = "groupz", comparision = "compareLinDEG", outDir = outDir, outName = paste(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME), sep = ""), colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = T
+        linDEG(seu.obj = seu.sub.clean, threshold = 1, thresLine = T, groupBy = "groupz", comparison = "compareLinDEG", outDir = outDir, outName = paste(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME), sep = ""), colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = T
               )
     }
     print(meta)
