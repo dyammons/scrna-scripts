@@ -1,4 +1,4 @@
-# Repository containing code and instructions to complete preliminary analysis of single-cell RNA sequencing data in R 
+# Repository for preliminary analysis of single-cell RNA sequencing data using R 
 This repository contains the instructions to create the expected directory structure, pull down a Singularity container, and to run a Seurat pipeline that will integrate multiple samples into one dataset.
 Purpose: facilitate the generation of uniform preliminary analysis across projects and promote an understanding of the computational steps involved in scRNA-seq analysis.  
 
@@ -23,8 +23,6 @@ There are several ways to clone the repository we will be using today (including
 A general note: If working on Alpine, it would be ideal to clone this to a `Peta Library allocation`, but if that is not available `Scratch` or `Projects` directories will also work. If using `Scratch` please note that data is deleted every 90 days, so you will need to complete regular backups and if using `Projects` there is limited storage, so there may not be sufficient room to complete the analysis.  
 
 For the purposes of today we will be working in `scratch` in a directory called `scrna-analysis`.
-
-<br>
 
 ```sh
 #make directory and navigate there
@@ -52,8 +50,6 @@ For ease of creating the required output directories the [`build_dir.sh`](./buil
 
 For this script you can enter multiple arguments where each argument is the name of cell subtype. Note: you can always add more later by rerunning this script
 
-<br>
-
 ```sh
 #run to create dir structure for "allCells"
 bash build_dir.sh allCells 
@@ -65,8 +61,6 @@ bash build_dir.sh allCells
 <br>
 
 Go up a level and you should now see `input` and `output` in addition to the original `scrna-scripts` directory.
-
-<br>
 
 ```sh
 cd ..
@@ -98,6 +92,8 @@ output/
 
 </details>
 
+<br> 
+
 
 ## Bring count matrices into the input directory
 
@@ -128,9 +124,22 @@ input/
 
 <br> 
 
-#### It is best to avoid moving files manually, so here is the approach I commonly use.
+
+<details><summary>Click to copy count matrices</summary>
 
 <br>
+
+```sh
+#navigate to input
+cd input
+
+#copy the files
+cp -r /scratch/alpine/dyammons@colostate.edu/dump/input/* .
+```
+
+</details>
+
+#### It is best to avoid moving files manually, so here is the approach I commonly use.
 
 ```sh
 #navigate to input
@@ -139,8 +148,6 @@ cd input
 <br>
 
 Create a string array that contains the sample names.
-
-<br>
 
 ```sh
 #indicate path to directory containing the output files
@@ -153,8 +160,6 @@ declare -a StringArray=($dirs)
 <br>
 
 Copy the data over.
-
-<br>
 
 ```sh
 #loop through the array to create sample sub-directories then copy the contents of filtered_feature_bc_matrix
@@ -230,9 +235,8 @@ bash getData.sh
 ## Collect the software container
 
 With the input in place we are nearly ready to get the code running! The next step is to get the `Singularity` container we will be using to run the script.  
-So, let's pull it down from Syslabs.
 
-<br>
+So, let's pull it down from Syslabs.
 
 ```sh
 #move into the scripts dir and pull down the sif
@@ -263,14 +267,14 @@ cp /scratch/alpine/dyammons@colostate.edu/dump/scrna-scripts/r4.3.1-seurat_v1.si
 
 </details>
 
+<br> 
+
 
 ## Test the software container
 
 Let's make sure we can enter the container and that the software is accessible for our use.  
 
 To do this we will launch a `shell` to enter the container. This is very similar to what `conda activate env` would do if you are familiar with `conda`.
-
-<br>
 
 ```sh
 #it is important to bind (-B) a directory at least 1 level up from the scripts folder
@@ -280,8 +284,6 @@ singularity shell -B $PWD/../ r4.3.1-seurat_v1.sif
 <br>
 
 While in the container we have access to all the software. So, let's launch an `R` session to ensure we can `source` the `customFunctions.R` file that will be key to running the code.
-
-<br>
 
 ```sh
 R
@@ -297,8 +299,6 @@ If all the packages load in no problem, then we are good to move forward!
 
 Since we are already in the container, let's run the code to generate the QC parameters so we can set thresholds for the pipeline.
 
-<br>
-
 ```r
 load10x(din = "../input/", dout = "../output/s1/", outName = "qc_test", testQC = T)
 #Saving 7 x 7 in image
@@ -312,6 +312,7 @@ View the files and decide on thresholds.
 
 I recommend to err on the side of caution and set them permissively as we can always go back and increase the stringency later on.
 
+<br> 
 
 ## Set thresholds and create a metadata file
 
@@ -330,8 +331,8 @@ outName <- "allCells"
 #set QC thresholds
 nFeature_RNA_high <- 5500
 nFeature_RNA_low <- 100
-percent.mt_high <- 12.5
-nCount_RNA_high <- 60000
+percent.mt_high <- 10
+nCount_RNA_high <- 30000
 nCount_RNA_low <- 200
 
 ########## END MODIFY #########
@@ -346,8 +347,6 @@ To do this we will open the `./metaData/refColz.csv` in a text editor and modify
 The columns `orig.ident` should exactly match the samples names as defined in the `input` sub-directories. The `name` column can be anything you want, typically a short hand for the sample name.
 
 Once the values are entered in the Rscript and the metadata is entered we are ready to run the preliminary script. So, let's exit the container and prepare the `.sbatch` file.
-
-<br>
 
 ```r
 #quit the R session

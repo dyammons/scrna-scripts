@@ -14,8 +14,8 @@ outName <- "allCells"
 #set QC thresholds
 nFeature_RNA_high <- 5500
 nFeature_RNA_low <- 100
-percent.mt_high <- 12.5
-nCount_RNA_high <- 60000
+percent.mt_high <- 10
+nCount_RNA_high <- 30000
 nCount_RNA_low <- 200
 
 ########## END MODIFY #########
