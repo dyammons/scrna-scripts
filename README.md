@@ -2,6 +2,8 @@
 This repository contains the instructions to create the expected directory structure, pull down a Singularity container, and to run a Seurat pipeline that will integrate multiple samples into one dataset.
 Purpose: facilitate the generation of uniform preliminary analysis across projects and promote an understanding of the computational steps involved in scRNA-seq analysis.  
 
+<br>
+
 
 ## Order of operations:
 To use this repository, you will need to clone the repo to your working space, pull down a Singularity container with required software pre-installed, and provide count matrices as an input.
@@ -313,6 +315,7 @@ View the files and decide on thresholds.
 I recommend to err on the side of caution and set them permissively as we can always go back and increase the stringency later on.
 
 <br> 
+
 
 ## Set thresholds and create a metadata file
 
