@@ -17,9 +17,9 @@ library(colorspace)
 library(DESeq2)
 library(pheatmap)
 library(RColorBrewer)
-# remotes::install_github("mojaveazure/seurat-disk") ## problem with this one; hdf5r related
+# remotes::install_github("mojaveazure/seurat-disk")
 library(SeuratDisk)
-# BiocManager::install("SingleR") ## problem with this one; XVector related
+# BiocManager::install("SingleR")
 library(SingleR)
 # BiocManager::install("celldex")
 library(celldex)
@@ -66,17 +66,19 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
                                   "CD4", "MS4A1", "PPBP","HBM")
                    ){
     
+    #if running a real run, update the user on the specified QC parameters that will be applied to the samples
     if (testQC == FALSE){
         message("The QC parameters are: nFeature_RNA < ", nFeature_RNA_high, " & nFeature_RNA > ", nFeature_RNA_low, " & percent.mt < ", percent.mt_high, " & nCount_RNA < ", nCount_RNA_high," & nCount_RNA > ", nCount_RNA_low)
     }
 
+    #get list of sub-dirs in the input dir and store as list to loop through
     fpath <-  paste0("./", din,"/") 
-
     files <- list.files(path = fpath, pattern=NULL, all.files=FALSE,
                         full.names=F)
 
     df.list <- list()
     for (infile in files) {
+
         #set up df for export
         if (removeRBC_pal == TRUE){
             df <- data.frame(matrix(ncol = 4, nrow = 0))
@@ -85,6 +87,9 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
             df <- data.frame(matrix(ncol = 3, nrow = 0))
             colnames(df) <- c("Initial","Filtered","Singlets")
         }
+
+
+        ### Load in the data ###
     
         #set import path
         pwd <- paste0("./", din,"/", infile) 
@@ -98,11 +103,12 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
                                       min.cells = 3,
                                       min.features = 200)
 
-        #Add mitochondrial QC data to seurat metadata
+        #add mitochondrial/hemoglobin/pal QC data to seurat metadata
         seu.obj[["percent.mt"]] <- PercentageFeatureSet(seu.obj, pattern = mt_pattern)
         seu.obj[["percent.hbm"]] <- PercentageFeatureSet(seu.obj, pattern = "HBM")
         seu.obj[["percent.ppbp"]] <- PercentageFeatureSet(seu.obj, pattern = "PPBP")
         
+        #if list of pal associated features is provided, use the sum of all features to calc "percent.pal"
         if(!is.null(pal_feats)){            
             data <- lapply(pal_feats, function(x){PercentageFeatureSet(seu.obj, pattern = x)})
             data <- as.data.frame(bind_cols(data))
@@ -110,17 +116,21 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
         }
     
         #visualize QC metrics as a violin plot
-        outfile <- paste0("./",dout,"/", infile,"_QC_S1.png") 
         p <- VlnPlot(seu.obj, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"))
-        ggsave(outfile)
+        ggsave(paste0("./",dout,"/", infile,"_QC_S1.png"))
 
+        #check if running through entire code
         if (testQC == TRUE){
             next
         }
     
+        #stash initial #'s of cells in the seurat object
         df[1,1] <- dim(seu.obj)[2]
 
-        #set QC cutoffs based on above plots ### MODIFY VALUES based on your data!! ###
+
+        ### Complete dimension reduction ###
+
+        #set QC cutoffs
         seu.obj <- subset(seu.obj,
                           subset = nFeature_RNA < nFeature_RNA_high & nFeature_RNA > nFeature_RNA_low &
                           percent.mt < percent.mt_high & nCount_RNA < nCount_RNA_high & nCount_RNA > nCount_RNA_low
@@ -129,7 +139,7 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
         #next steps normalize, scale, and run UMAP
         seu.obj <- NormalizeData(seu.obj,
                                  normalization.method = "LogNormalize",
-                                 Scale.factor = 10000) #default Seurat log normalization appraoch
+                                 Scale.factor = 10000) #default Seurat log normalization approach
 
         seu.obj <- FindVariableFeatures(seu.obj,
                                         selection.method = "vst", 
@@ -150,22 +160,26 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
                            dims = 1:15
                           )
 
-        #visulize UMAP featPlots
-        outfile <- paste0("./",dout,"/", infile,"_featPlotDefault_S1.png")
+        #visulize featPlots
         p <- FeaturePlot(seu.obj,features = featPlots)
-        ggsave(outfile, width = 12, height = 8)
+        ggsave(paste0("./",dout,"/", infile,"_featPlotDefault_S1.png"), width = 12, height = 8)
         
         #visulize UMAP
-        outfile <- paste0("./",dout,"/", infile,"_uMAP_S1.png") 
         p <- DimPlot(seu.obj, reduction = "umap")
-        ggsave(outfile)
+        ggsave(paste0("./",dout,"/", infile,"_uMAP_S1.png"))
         
         #stash initial cluster IDs
         seu.obj[["int.clusID"]] <- Idents(object = seu.obj)
         
+        #stash the number of remaining cells following removal of cells that fail QC
         df[1,2] <- dim(seu.obj)[2]
         
+
+        ### Optionally remove platelets and red blood cells ###
+
+        #if wanting to remove platelets and red blood cells, then run this block
         if (removeRBC_pal == TRUE){
+
             #find the rbc cluster
             if(length(AverageExpression(seu.obj, features = "HBM")) != 0){
                 rbc.df <- as.data.frame(AverageExpression(seu.obj, features = "HBM"), header = TRUE)
@@ -177,9 +191,19 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
                 sus.rbc.comp.pct <- sus.rbc.size/sus.rbc.clus.size
                 rbc.clus <- ifelse(sus.rbc.comp.pct > 0.8, rbc.clus, "NULL")
                 print(rbc.clus)
-            } else{rbc.clus <- "NULL"}
+
+                if(is.null(rbc.clus)){
+                    message("No red blood cells detected in sample!")
+                }else{
+                    message("Red blood cells detected in sample!")
+                }
+
+            } else{
+                rbc.clus <- "NULL"
+                message("No red blood cells detected in sample!")
+                }
             
-            #find the palelet cluster
+            #find the platelet cluster
             if(length(AverageExpression(seu.obj, features = "PPBP")) != 0){
                 pal.df <- as.data.frame(AverageExpression(seu.obj, features = "PPBP"), header = TRUE)
                 pal.clus <- str_split(as.character(colnames(pal.df)[max.col(pal.df,ties.method="first")]),"[.]")[[1]][2]
@@ -190,8 +214,19 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
                 sus.pal.comp.pct <- sus.pal.size/sus.pal.clus.size
                 pal.clus <- ifelse(sus.pal.comp.pct > 0.8, pal.clus, "NULL")
                 print(pal.clus)
-            } else{pal.clus <- "NULL"}
+
+                if(is.null(pal.clus)){
+                    message("No platelets detected in sample!")
+                }else{
+                    message("Platelets detected in sample!")
+                }
+
+            } else{
+                pal.clus <- "NULL"
+                message("No platelets detected in sample!")
+                }
             
+            #check if platelet or rbcs clusters were found, if one or more was found, remove them, else do not remove any clusters
             if(rbc.clus != "NULL" | pal.clus != "NULL"){
                 if(isolatePalRBC == F){
                     seu.obj <- subset(seu.obj,
@@ -201,37 +236,42 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
                     seu.obj <- subset(seu.obj,
                                       subset = int.clusID == pal.clus | int.clusID == rbc.clus)
                 }
-            } else{message("No platelets of rbcs detected in sample!")}
+            } else{message("No platelets or red blood cells removed from sample!")}
             
+            #stash the number of remaining cells following removal of platelets and rbcs
             df[1,3] <- dim(seu.obj)[2]
         }
         
-        #next steps complete doublet identification using DoubletFinder
+
+        ### Run DoubletFinder ###
+
+        #next steps complete doublet identification using DoubletFinder -- taken from the GitHub page
+        #https://github.com/chris-mcginnis-ucsf/DoubletFinder
         sweep.res.list_seu.obj <- paramSweep_v3(seu.obj, PCs = 1:10, sct = FALSE)
         sweep.stats_seu.obj <- summarizeSweep(sweep.res.list_seu.obj, GT = FALSE)
         bcmvn_seu.obj <- find.pK(sweep.stats_seu.obj)
         pk_val <- as.numeric(as.character(bcmvn_seu.obj$pK[bcmvn_seu.obj$BCmetric == max(bcmvn_seu.obj$BCmetric)])) 
-        annotations <- seu.obj@meta.data$seurat_clusters
+        annotations <- seu.obj$seurat_clusters
         homotypic.prop <- modelHomotypic(annotations)
         
-        #determine expected doublet rate -- this formula assumes 0.5% doublet per 1000 cells (lower than 10x recommendation to account for homoypic doublets and cells removed during QC)
+        #determine expected doublet rate -- this formula assumes 0.5% doublet per 1000 cells (lower than 10x recommendation to account for homotypic doublets and cells removed during QC)
         expceted_dub_rate <- dim(seu.obj)[2]/1000*0.5/100
         
-        nExp_poi <- round(expceted_dub_rate*length(seu.obj@meta.data$orig.ident))  ### MODIFY VALUE; should be percentage expected to be doublets based on 10X expected values ###
+        nExp_poi <- round(expceted_dub_rate*length(seu.obj$orig.ident))
         nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
         
-        pN_value <- 0.25 ### MODIFY VALUE as needed ###
-        
+        pN_value <- 0.25 #may want to MODIFY value, but this usually works just fine
         pANN_value <- paste0("pANN_",pN_value,"_",pk_val,'_',nExp_poi)
+
+        #run doubletFinder
         seu.obj <- doubletFinder_v3(seu.obj, PCs = 1:10, pN = pN_value, pK = pk_val, nExp = nExp_poi, reuse.pANN = FALSE, sct = FALSE)
-        dfClass <- paste0("DF.classifications_",pN_value,"_",pk_val,'_',nExp_poi)
-        dfmeta <- paste0("seu.obj@meta.data$",dfClass)
-        seu.obj[["doublet"]] <- eval(parse(text = dfmeta))
+
+        #stash the cell calls under the meta.data slot "doublet"
+        seu.obj[["doublet"]] <- seu.obj[[paste0("DF.classifications_", pN_value, "_", pk_val, '_', nExp_poi)]]
         
         #export UMAP highlighting doublet vs singlet cells
-        outfile <- paste0("./",dout,"/", infile,"_DF_S1.png") 
-        DimPlot(seu.obj,pt.size = 1,label=TRUE, label.size = 5,reduction = "umap",group.by = dfClass )
-        ggsave(outfile)
+        DimPlot(seu.obj, pt.size = 1, label = TRUE, label.size = 5, reduction = "umap", group.by = "doublet" )
+        ggsave(paste0("./", dout, "/", infile,"_DF_S1.png") )
         
         if (removeDubs == TRUE){
             #remove putative doublets
@@ -240,16 +280,19 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
                              )
         }    
         
-        #update user log
+        #stash the number of remaining cells following removal of doublets
         if (removeRBC_pal == TRUE){
             df[1,4] <- dim(seu.obj)[2]
         } else {df[1,3] <- dim(seu.obj)[2]
                }
         
+        #stash the values in data frame list to be rbind later
         rownames(df) <- infile
         df.list[[which(infile == files)]] <- df
         
-        
+
+        ### Complete dimension reduction again to allow for visual inspection before proceeding ###
+
         #next steps normalize, scale, and run UMAP
         seu.obj <- NormalizeData(seu.obj,
                                  normalization.method = "LogNormalize",
@@ -259,32 +302,33 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
                                         selection.method = "vst", 
                                         nfeatures = nfeatures) #can change number of feats used; default number selected
   
-        outfile <- paste0("./",dout,"/", infile,"_varFeatPlot_post_doubletFinder_S1.png")
         p <- VariableFeaturePlot(seu.obj)
-        ggsave(outfile, width = 7, height = 7)
+        ggsave(paste0("./",dout,"/", infile,"_varFeatPlot_post_doubletFinder_S1.png"), width = 7, height = 7)
         
         seu.obj <- ScaleData(seu.obj)
         
         #recluster the data with all unwanted cells removed
         seu.obj <- RunPCA(seu.obj, features = VariableFeatures(object = seu.obj))
+
         seu.obj <- FindNeighbors(seu.obj, 
                                  dims = 1:10
                                 ) #can change dims
+
         seu.obj <- FindClusters(seu.obj, 
                                 resolution = 0.1
                                ) #can change resolution
+
         seu.obj <- RunUMAP(seu.obj, 
                            dims = 1:15
                           ) #can change dims
         
-        outfile <- paste0("./",dout,"/", infile,"_featPlotDefault_post_doubletFinder_S1.png")
+        #plot features
         p <- FeaturePlot(seu.obj,features = featPlots)
-        ggsave(outfile, width = 12, height = 8)
+        ggsave(paste0("./",dout,"/", infile,"_featPlotDefault_post_doubletFinder_S1.png"), width = 12, height = 8)
         
-        #export final umap
-        outfile <- paste0("./",dout,"/", infile,"_uMAP_post_doubletFinder_S1.png") 
+        #plot final umap
         DimPlot(seu.obj, reduction = "umap")
-        ggsave(outfile)
+        ggsave(paste0("./",dout,"/", infile,"_uMAP_post_doubletFinder_S1.png") )
         
         #identify cycling cells
         seu.obj <- CellCycleScoring(
@@ -294,28 +338,29 @@ load10x <- function(din = NULL, dout = NULL, outName = NULL, testQC = FALSE,
         )
         
         #export UMAP with cycling data
-        outfile <- paste0("./",dout,"/", infile,"_uMAP_cellCylce_post_doubletFinder_S1.png") 
         DimPlot(seu.obj, reduction = "umap", group.by = "Phase")
-        ggsave(outfile)
+        ggsave(paste0("./",dout,"/", infile,"_uMAP_cellCylce_post_doubletFinder_S1.png"))
         
         #store cell cycle state
         seu.obj[["clusters"]] <- Idents(object = seu.obj)
         
         #export processed seurat object as an .RDS file
-        outfile <- paste0("./",dout,"/", infile,"_S1.rds") 
-        saveRDS(seu.obj, file = outfile)
+        saveRDS(seu.obj, file = paste0("./",dout,"/", infile,"_S1.rds"))
     }
     
+    #save the cell numbers throughout filtering
     cellCounts <- do.call(rbind, df.list)
-    outfile <- paste0("./",dout,"/", outName, "_cell_counts_S1.csv")
-    write.csv(cellCounts, file = outfile)
+    write.csv(cellCounts, file = paste0("./",dout,"/", outName, "_cell_counts_S1.csv"))
 }
 
 ############ sctIntegrate ############
 
-sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.regress = c("percent.mt"), nfeatures = 2000,
-                         featTOexclude = NULL, pattern = "S1.rds", returnObj = TRUE
+sctIntegrate <- function(din = "", dout = "./output/", 
+                         outName = "", vars.to.regress = c("percent.mt"), 
+                         nfeatures = 2000, featTOexclude = NULL, 
+                         pattern = "S1.rds", returnObj = TRUE
                         ) {
+    
     #get seurat objects to process and integrate
     fpath <- paste0("./", din,"/") 
     files <- list.files(path = fpath, pattern = pattern, all.files=FALSE,
@@ -325,10 +370,13 @@ sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.reg
         readRDS(x)
     }
 
+
+    ### PREPARE THE DATA FOR INTEGRATION
+
     #load all seurat objects and store in a large list
     seu.obj <- mapply(create.seu.call, files)
 
-    #use SCT inegration to merge the samples
+    #use SCT integration to process the samples for integration
     seu.obj <- lapply(seu.obj, 
                       SCTransform, 
                       vars.to.regress = vars.to.regress,
@@ -336,23 +384,33 @@ sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.reg
                      )
 
     SelectedFeatures <- SelectIntegrationFeatures(object.list = seu.obj,
-                                                  nfeatures = nfeatures) 
+                                                  nfeatures = nfeatures
+                                                  ) 
+    
     message(paste0("NOTE: ", length(SelectedFeatures), " features identified as anchors and will be used for integration."))
     
+    #if for some reason you wish to exclude a specific feature(s) from being included in integration, remove it from the the variable feature list
     if(!is.null(featTOexclude)){
         SelectedFeatures <- SelectedFeatures[!SelectedFeatures %in% featTOexclude]
         if(nfeatures != length(SelectedFeatures)){
-            message(paste0("NOTE: ", featTOexclude, " was/were excluded from the variable features used in integration!"))
+            message(paste0("NOTE: ", featTOexclude, " was/were excluded from the variable features list and will NOT be used in integration!"))
+
+            #run again to try to pick up additional features to replace any removed features
             SelectedFeatures <- SelectIntegrationFeatures(object.list = seu.obj,
                                                           nfeatures = nfeatures+(nfeatures-length(SelectedFeatures))
                                                          )
+
+            #confirm no featTOexclude are included in the list
             SelectedFeatures <- SelectedFeatures[!SelectedFeatures %in% featTOexclude]
             
         }else{
-            message(paste0("NOTE: The feature(s) to exclude (", featTOexclude, ") was/were not included in the variable features used in integration, so the option was not used."))
+            message(paste0("NOTE: The feature(s) to exclude (", featTOexclude, ") was/were not initially identified as the variable features to be used in integration, so the option was not used."))
         }
     }
     
+
+    ### Follow a standard SCT integration workflow (Seurat v4 or less) ###
+
     seu.integrated <- PrepSCTIntegration(
         object.list = seu.obj,
         anchor.features = SelectedFeatures,
@@ -372,7 +430,7 @@ sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.reg
     rm(seu.integrated)
     gc()
 
-    #integrate data and keep full gene set - still might not be retaining all genes
+    #integrate data
     seu.integrated.obj <- IntegrateData(
         anchorset = seu.integrated.anchors,
         normalization.method = "SCT",
@@ -383,16 +441,14 @@ sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.reg
     rm(seu.integrated.anchors)
     gc()
     
+    #run PCA to start the dimension reduction process
     seu.integrated.obj <- RunPCA(seu.integrated.obj)
 
     p <- ElbowPlot(seu.integrated.obj, ndims = 50)
-    outfile <- paste0(dout, outName, "_seu.integrated.obj_S2_elbow.png")
-    ggsave(outfile)
+    ggsave(paste0(dout, outName, "_seu.integrated.obj_S2_elbow.png"))
 
     DefaultAssay(seu.integrated.obj) <- "integrated"
-
-    outfile <- paste0(dout, outName, "_seu.integrated.obj_S2.rds")
-    saveRDS(seu.integrated.obj, file = outfile)
+    saveRDS(seu.integrated.obj, file = paste0(dout, outName, "_seu.integrated.obj_S2.rds"))
     
     if(returnObj){
         return(seu.integrated.obj)
@@ -400,20 +456,24 @@ sctIntegrate <- function(din = "", dout = "./output/", outName = "", vars.to.reg
 }
 
 ############ clusTree ############
-#uses too much ram if paralellized
+#uses a lot of ram if parallelized
 
-clusTree <- function(seu.obj = NULL, dout = "./output/", outName = "", test_dims = c(50,45,40,35), algorithm = 3, resolution = c(0.01, 0.05, 0.1, seq(0.2, 2, 0.1)), 
+clusTree <- function(seu.obj = NULL, 
+                     dout = "./output/", outName = "", 
+                     test_dims = c(50,45,40,35), 
+                     resolution = c(0.01, 0.05, 0.1, seq(0.2, 2, 0.1)), 
+                     algorithm = 3, 
                      prefix = "integrated_snn_res."
                     ) {
     
     for (dimz in test_dims){
+
         seu.test <- FindNeighbors(object = seu.obj, dims = 1:dimz)
         seu.test <- FindClusters(object = seu.test, algorithm = algorithm, resolution = resolution)
         
         p <- clustree::clustree(seu.test, prefix = prefix) + ggtitle(paste0("The number of dims used:", dimz))
         
-        outfile <- paste0(dout,dimz ,"_clustree_", outName,".png") 
-        png(file = outfile, height = 1100, width = 2000)
+        png(file = paste0(dout,dimz ,"_clustree_", outName,".png") , height = 1100, width = 2000)
         print(p)
         dev.off()
         
@@ -421,14 +481,44 @@ clusTree <- function(seu.obj = NULL, dout = "./output/", outName = "", test_dims
 }
 
 ############ dataVisUMAP ############
+#' Complete dimension reduction and visualize data
+#'
+#' @param file Path to .rds file that contains a Seurat object; usually will have a "_S2.rds" suffix
+#' @param seu.obj Seurat object to be processed; usually will be the output of sctIntegrate() or indReClus()
+#' @param outDir Path to output directory; usually ../output/s3/
+#' @param outName Short name that will be incorporated into the output files
+#' @param final.dims Numerical; typically between 15 and 50 - default 40
+#' @param final.res Numerical; typically between 0.1 and 2 - default 0.8
+#' @param min.dist Numerical; typically between 0.1 and 0.8 - default 0.3
+#' @param n.neighbors Numerical; typically between 10 and 75 - default 30
+#' @param stashID String; name of metadata slot to store the results of unsupervised clustering
+#' @param returnFeats Logical; if TRUE return feature plots
+#' @param algorithm Integer; 1-4 - default 3; see Seurat documentation on FindClusters() for more information
+#' @param prefix String; "integrated_snn_res." for an integrated object, "RNA_snn_res." for an unintegrated, single sample object
+#' @param assay String; "integrated" for an integrated object, "RNA" for an unintegrated, single sample object -- should match prefix param
+#' @param saveRDS Logical; if TRUE then a Seurat object will be saved with a "_S3.rds" suffix in outDir
+#' @param return_obj Logical; if TRUE then a Seurat object will be returned
+#' @param features List of features to plot after dimension reduction
+#'
+#' @return A Seurat object with data in the UMAP slot
+#' @examples 
+#' @export "_cluster_S3.png" "_sample_S3.png" "_S3.rds" "_featPlotDefault_S3.png"
 
-dataVisUMAP <- function(file = NULL, seu.obj = NULL, outDir = "", outName = "", final.dims = NULL, final.res = NULL, stashID = "clusterID", returnFeats = T,
-                        algorithm = 3, prefix = "integrated_snn_res.", min.dist = 0.6, n.neighbors = 75, assay = "integrated", saveRDS = T, return_obj = T,
+dataVisUMAP <- function(file = NULL, seu.obj = NULL, 
+                        outDir = "", outName = "", 
+                        final.dims = NULL, final.res = NULL, min.dist = 0.6, n.neighbors = 75,
+                        stashID = "clusterID", 
+                        returnFeats = T,
+                        algorithm = 3, 
+                        prefix = "integrated_snn_res.",  
+                        assay = "integrated", 
+                        saveRDS = T, return_obj = T,
                         features = c("PTPRC", "CD3E", "CD8A", "GZMA", 
                                      "IL7R", "ANPEP", "FLT3", "DLA-DRA", 
                                      "CD4", "MS4A1", "PPBP","HBM")
                        ) {
     
+    #can read in via .rds file if desired
     if(!is.null(file)){
         try(seu.integrated.obj <- readRDS(file), silent = T)
     }else if(!is.null(seu.obj)){
@@ -436,15 +526,15 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL, outDir = "", outName = "", 
     }
 
     #perform clustering: Neighbor finding and resolution parameters
-    DefaultAssay(seu.integrated.obj ) <- assay
+    DefaultAssay(seu.integrated.obj) <- assay
     seu.integrated.obj <- FindNeighbors(object = seu.integrated.obj, dims = 1:final.dims)
     seu.integrated.obj <- FindClusters(object = seu.integrated.obj, algorithm = algorithm, resolution = final.res)
 
     #choose appropriate clustering resolution
-    res <- paste0(prefix, final.res,sep = "") 
+    res <- paste0(prefix, final.res) 
     seu.integrated.obj <- SetIdent(object = seu.integrated.obj, value = res)
     
-    # Run UMAP embedding
+    #run UMAP
     seu.integrated.obj <- RunUMAP(seu.integrated.obj,
                                   dims = 1:final.dims,
                                   min.dist = min.dist,
@@ -460,30 +550,23 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL, outDir = "", outName = "", 
     seu.integrated.obj <- BuildClusterTree(seu.integrated.obj, assay = "RNA", dims = 1:final.dims)
 
     #export UMAP colored by sample ID and cluster
-    outfile <- paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_cluster_S3.png") 
     p <- DimPlot(seu.integrated.obj, label = TRUE, reduction = "umap", group.by = stashID)
-    ggsave(outfile)
+    ggsave(paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_cluster_S3.png"))
     
-    outfile <- paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_sample_S3.png") 
     p <- DimPlot(seu.integrated.obj, reduction = "umap", group.by = "orig.ident")
-    ggsave(outfile)
+    ggsave(paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_sample_S3.png"))
 
     if(returnFeats == T){
      
         #visulize UMAP featPlots
-        outfile <- paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors, "_featPlotDefault_S3.png")
         p <- FeaturePlot(seu.integrated.obj,features = features)
-        ggsave(outfile, width = 12, height = 8)
-    }
+        ggsave(paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist", min.dist, "_neigh", n.neighbors, "_featPlotDefault_S3.png"), width = 12, height = 8)
 
-    #stash identy by healthy vs OS & store as cellSource - add feature
-    #Idents(seu.integrated.obj) <- "orig.ident" #need to do smthg about this
-    #seu.integrated.obj$cellSource <- ifelse(grepl("ealthy", seu.integrated.obj@meta.data$orig.ident), "Healthy", "Osteosarcoma")
+    }
 
     #save seurat object as rds
     if(saveRDS == T){
-        outfile <- paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist",min.dist, "_neigh",n.neighbors,"_S3.rds")
-        saveRDS(seu.integrated.obj, file = outfile)
+        saveRDS(seu.integrated.obj, file = paste0(outDir, outName, "_res", final.res, "_dims", final.dims, "_dist", min.dist, "_neigh", n.neighbors, "_S3.rds"))
     }
     
     if(return_obj == T){
@@ -493,14 +576,18 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL, outDir = "", outName = "", 
 
 
 ############ indReClus ############
-#adopteed from final post on Dec 4, 2021  at https://github.com/satijalab/seurat/issues/1883
-indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", subName = "", preSub = F, seu.list = NULL, featTOexclude = NULL, nfeatures = 2000, k = NULL, saveRDS = T, returnObj = T,ndims = 50,
-                      vars.to.regress = "percent.mt", z = 30
+#adopted from final post on Dec 4, 2021  at https://github.com/satijalab/seurat/issues/1883
+indReClus <- function(seu.obj = NULL, seu.list = NULL,
+                      preSub = F, group.by = NULL, sub = NULL, 
+                      outDir = "", subName = "",  
+                      featTOexclude = NULL, nfeatures = 2000, 
+                      vars.to.regress = "percent.mt",
+                      k = NULL, z = 30,
+                      ndims = 50,
+                      saveRDS = T, returnObj = T 
                        ) {
     
-    #print(paste0("The seurat object loaded: ", seu.obj))
-    #print(paste0("The seurat object will be subset on: ", sub))
-    print(paste0("The subclustered object will be output as: ", outDir, subName,"_S2.rds"))
+    message(paste0("The subclustered object will be output as: ", outDir, subName,"_S2.rds"))
     
     #read in data
     if(preSub == F){
@@ -513,15 +600,17 @@ indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", 
     options(future.globals.maxSize = 100000 * 1024^2)
 
     if(is.null(seu.list)){
+
         seu.sub.list <- SplitObject(seu.sub, split.by = "orig.ident")
-        z <- table(seu.sub@meta.data$orig.ident)
-        print(z)
+        z <- table(seu.sub$orig.ident)
+
         k <- ifelse(is.null(k), ifelse(min(z)>100,100, min(z)), k)
-        print(k)
+
     }else{
+
         seu.sub.list <- seu.list
         k <- ifelse(is.null(k),100,k)
-        print(k)
+
     }
 
     seu.obj <- lapply(seu.sub.list,
@@ -533,18 +622,24 @@ indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", 
     SelectedFeatures <- SelectIntegrationFeatures(object.list = seu.obj,
                                                        nfeatures = nfeatures)
 
+    message(paste0("NOTE: ", length(SelectedFeatures), " features identified as anchors and will be used for integration."))
+    
+    #if for some reason you wish to exclude a specific feature(s) from being included in integration, remove it from the the variable feature list
     if(!is.null(featTOexclude)){
         SelectedFeatures <- SelectedFeatures[!SelectedFeatures %in% featTOexclude]
         if(nfeatures != length(SelectedFeatures)){
-            message <- paste0("NOTE: ", featTOexclude, " was/were excluded from the variable features used in integration!",sep = "")
-            print(message)
+            message(paste0("NOTE: ", featTOexclude, " was/were excluded from the variable features list and will NOT be used in integration!"))
+
+            #run again to try to pick up additional features to replace any removed features
             SelectedFeatures <- SelectIntegrationFeatures(object.list = seu.obj,
                                                           nfeatures = nfeatures+(nfeatures-length(SelectedFeatures))
                                                          )
+
+            #confirm no featTOexclude are included in the list
             SelectedFeatures <- SelectedFeatures[!SelectedFeatures %in% featTOexclude]
+            
         }else{
-            message <- paste0("NOTE: The features to exclude (", featTOexclude, ") was/were not included in the variable features used in integration, so the option was not used.",sep = "")
-            print(message)
+            message(paste0("NOTE: The feature(s) to exclude (", featTOexclude, ") was/were not initially identified as the variable features to be used in integration, so the option was not used."))
         }
     }
     
@@ -556,14 +651,13 @@ indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", 
 
     gc()
 
-    seu.integrated.anchors <- FindIntegrationAnchors(
-        object.list = seu.integrated,
-        normalization.method = "SCT",
-        anchor.features = SelectedFeatures,
-        dims = 1:ifelse(min(z)>30, 30, min(z)-1),
-        k.filter = ifelse(min(z)>200, 200, min(z)-1),
-        k.score = ifelse(min(z)>30, 30, min(z)-1)
-    )
+    seu.integrated.anchors <- FindIntegrationAnchors(object.list = seu.integrated,
+                                                     normalization.method = "SCT",
+                                                     anchor.features = SelectedFeatures,
+                                                     dims = 1:ifelse(min(z)>30, 30, min(z)-1),
+                                                     k.filter = ifelse(min(z)>200, 200, min(z)-1),
+                                                     k.score = ifelse(min(z)>30, 30, min(z)-1)
+                                                    )
 
     #clean up environment a bit
     rm(seu.sub)
@@ -573,12 +667,11 @@ indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", 
     gc()
 
     #integrate data and keep full gene set - still might not be retaining all genes
-    seu.integrated.obj <- IntegrateData(
-        anchorset = seu.integrated.anchors,
-        normalization.method = "SCT",
-        k.weight = k,
-        verbose = FALSE
-    )
+    seu.integrated.obj <- IntegrateData(anchorset = seu.integrated.anchors,
+                                        normalization.method = "SCT",
+                                        k.weight = k,
+                                        verbose = FALSE
+                                       )
 
     #clean up environment a bit
     rm(seu.integrated.anchors)
@@ -586,16 +679,13 @@ indReClus <- function(seu.obj = NULL, group.by = NULL, sub = NULL, outDir = "", 
 
     seu.integrated.obj <- RunPCA(seu.integrated.obj)
 
-
-    outfile <- paste0(outDir, subName,"_S2_elbow.png")
     p <- ElbowPlot(seu.integrated.obj, ndims = ndims)
-    ggsave(outfile)
+    ggsave(paste0(outDir, subName,"_S2_elbow.png"))
 
     DefaultAssay(seu.integrated.obj) <- "integrated"
 
     if(saveRDS){
-        outfile <- paste0(outDir, subName,"_S2.rds")
-        saveRDS(seu.integrated.obj, file = outfile)
+        saveRDS(seu.integrated.obj, file = paste0(outDir, subName,"_S2.rds"))
     }
     
     if(returnObj){
@@ -710,7 +800,7 @@ prettyFeats <- function(seu.obj = NULL, nrow = 3, ncol = NULL, features = "", co
 #features to add
 #error if more than 2 levels ORR make if so user specifies compatisipon
 
-linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clusterID", comparision = "cellSource", outDir = "./output/", outName = "", cluster = NULL, labCutoff = 20,noTitle = F,
+linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clusterID", comparison = "cellSource", outDir = "./output/", outName = "", cluster = NULL, labCutoff = 20,noTitle = F,
                    colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = F, useLineThreshold = F, pValCutoff = 0.01, flipLFC = F, saveGeneList = F, addLabs = ""
                   ) {
     
@@ -722,7 +812,7 @@ linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clus
         
         seu.sub <- subset(seu.obj, idents = x)
         seu.sub@meta.data[[groupBy]] <- droplevels(seu.sub@meta.data[[groupBy]])
-        geneList <- vilnSplitComp(seu.obj = seu.sub, groupBy = groupBy, refVal = comparision, outDir = outDir, outName = outName, 
+        geneList <- vilnSplitComp(seu.obj = seu.sub, groupBy = groupBy, refVal = comparison, outDir = outDir, outName = outName, 
                                   saveOut = F, saveGeneList = saveGeneList, returnGeneList = T
                                  ) 
         geneList <- geneList[[1]]
@@ -732,7 +822,7 @@ linDEG <- function(seu.obj = NULL, threshold = 1, thresLine = T, groupBy = "clus
         }
         geneList$gene <- rownames(geneList)
         
-        Idents(seu.sub) <- comparision
+        Idents(seu.sub) <- comparison
         avg.seu.sub <- log1p(AverageExpression(seu.sub, verbose = FALSE)$RNA)
         avg.seu.sub <- as.data.frame(avg.seu.sub)
         avg.seu.sub <- avg.seu.sub[!grepl("ENSCAFG", row.names(avg.seu.sub)),] #make better
@@ -1015,7 +1105,7 @@ vilnSplitComp <- function(seu.obj = NULL, groupBy = "clusterID", refVal = "cellS
         cluster.markers <- FindMarkers(seu.obj, ident.1 = comp1,  ident.2 = comp2, min.pct = 0, logfc.threshold = 0.5) 
         
         if(saveGeneList){
-            outfile <- paste(outDir, outName,"_", x,"geneList.csv", sep = "")
+            outfile <- paste0(outDir, outName,"_", x,"geneList.csv")
             cluster.markers$cellType <- x
             write.csv(cluster.markers, file = outfile)
         }
@@ -1040,7 +1130,7 @@ vilnSplitComp <- function(seu.obj = NULL, groupBy = "clusterID", refVal = "cellS
         )
   
         if(saveOut){
-            outfile <- paste(outDir, outName,"_", x,"_top",nPlots,"_comp_vlnPlot.png", sep = "") 
+            outfile <- paste0(outDir, outName,"_", x,"_top",nPlots,"_comp_vlnPlot.png") 
             png(file = outfile, width=2520, height=1460)
         
             print(seurat.vlnplot)
@@ -1108,7 +1198,7 @@ vilnSplitCompxGene <- function(seu.obj = NULL, groupBy = "clusterID_sub", comp =
                  ) & theme(axis.text.x = element_blank())
         
         if(save == T){
-            outfile <- paste(outDir, outName,"_", x,"_comp_vlnPlot.png", sep = "") 
+            outfile <- paste0(outDir, outName,"_", x,"_comp_vlnPlot.png") 
             ggsave(plot = p, outfile, height = height, width = width) 
         }
         
@@ -1137,89 +1227,106 @@ vilnSplitCompxGene <- function(seu.obj = NULL, groupBy = "clusterID_sub", comp =
 
 ############ getPB ############
 
-#define the function
 #where bioRep == annotation vector cell & orig.ident data (with levels for each patient)
 getPb <- function(mat.sparse, bioRep) {
-   mat.summary <- do.call(cbind, lapply(levels(bioRep$cellSource), function(rep) {
-     cells <- row.names(bioRep)[bioRep$cellSource==rep]
-     pseudobulk <- Matrix::rowSums(mat.sparse[,cells])
-     return(pseudobulk)
-   }))
-    
-   colnames(mat.summary) <- levels(bioRep$cellSource)
+
+    #extract count sums for each cell within a biological replicate
+    collapsedCnts <- lapply(levels(bioRep$cellSource), function(rep){
+        
+        cells <- row.names(bioRep)[bioRep$cellSource == rep]
+        pseudobulk <- Matrix::rowSums(mat.sparse[ ,cells])
+
+        return(pseudobulk)
+        
+        })
+
+    #bind the values for each sample and add the column names
+    mat.summary <- do.call(cbind, collapsedCnts)
+    colnames(mat.summary) <- levels(bioRep$cellSource)
+
    return(mat.summary)
 }
                        
 ############ createPB ############
 
 createPB <- function(seu.obj = NULL, groupBy = "clusterID_sub", comp = "cellSource", biologicalRep = "orig.ident",
-                     clusters = NULL, outDir = "", min.cell = 25, lowFilter = F, dwnSam =T, featsTOexclude = NULL, cnts = T,
-                     grepTerm = NULL, grepLabel = NULL#improve - fix this so it is more functional
+                     clusters = NULL, outDir = "", min.cell = 5, lowFilter = TRUE, dwnSam = FALSE, featsTOexclude = NULL, cnts = TRUE
+                    #  , grepTerm = NULL, grepLabel = NULL #improve - fix this so it is more functional -- DONE 11.27.2023
                     ){
 
-
+    #set active.ident to the level to loop by
     Idents(seu.obj) <- groupBy
     
     #extract number of biological replicates in the grouping system
     ztest <- dim(table(seu.obj@meta.data[[biologicalRep]]))
     
-    groupz <- ifelse(is.null(clusters),levels(seu.obj),list(clusters)) #improve - fix this so you can choose not to run the conversion on all samples...
-    #loop though all the groups
-    test <- lapply(levels(seu.obj), function(x) {
-        
+    #if specific clusters no provied, loop through all levels in active.ident
+    groupz <- ifelse(is.null(clusters), levels(seu.obj), list(clusters))
+
+    #loop though all levels of active.ident
+    test <- lapply(levels(seu.obj), function(x){
+
         #subset the data by group
         seu.sub <- subset(seu.obj, idents = x)
-        
-        #determine value to downsample by and extract metadata - uses bioRep with lowest number of cells > "25"
+
+        #determine value to downsample by and extract metadata - uses bioRep with lowest number of cells > "5"
         z <- table(seu.sub@meta.data[[biologicalRep]])
-        z <- z[z>min.cell]
+        z <- z[z > min.cell]
         zKeep <- names(z)
 
         if(length(zKeep) >= 0.5*ztest){
         
-            #remove samples that have insufficent cell numbers then normalize the data
+            #remove samples that have insufficent cell numbers then normalize the data (normalization is not needed)
             Idents(seu.sub) <- biologicalRep
             seu.sub.clean <- subset(seu.sub, idents = zKeep)
             seu.sub.clean <- NormalizeData(seu.sub.clean)
     
-            
             seu.sub.clean@meta.data[[biologicalRep]] <- as.factor(seu.sub.clean@meta.data[[biologicalRep]])
             seu.sub.clean@meta.data[[biologicalRep]] <- droplevels(seu.sub.clean@meta.data[[biologicalRep]])
             
-            
-            z <- table(seu.sub.clean@meta.data[[biologicalRep]])
+            z <- table(seu.sub.clean@meta.data[[biologicalRep]], seu.sub.clean@meta.data[[comp]]) %>% melt() %>% filter(value != 0)
             
             #extract and save metadata in a data.frame
             z <- as.data.frame(z)
-            colnames(z) <- c("sampleID", "nCell")
+            colnames(z) <- c("sampleID", "groupID", "nCell")
             z$clusterID <- toString(x) #add clusterID value
-            z$groupID <- ifelse(grepl(grepTerm, z$sampleID), grepLabel[1], grepLabel[2]) #fix this - hardcoded and will only work for PBMCs improve this
-    
-            ds <- min(z$nCell[z$nCell > min.cell])
+            # z$groupID <- ifelse(grepl(grepTerm, z$sampleID), grepLabel[1], grepLabel[2]) #fix this - hardcoded and will only work for PBMCs improve this
 
+            #down sampling is not necissary, some people reccomend it, but I now reccomend skipping this (default)
             if(dwnSam){
-            message <- paste("Downsampling cluster: ", x," at a level of ", ds, " cells per replicate", sep = "")
-            print(message)
+
+                #identitfy sample with fewest number of cells
+                ds <- min(z$nCell[z$nCell > min.cell])
+
+                msg <- paste0("Downsampling cluster: ", x," at a level of ", ds, " cells per replicate.")
+                message(msg)
         
-            #randomly downsample the subset data
-            Idents(seu.sub.clean) <- biologicalRep
-            set.seed(12)
-            seu.sub.clean <- subset(x = seu.sub.clean, downsample = ds) #works, but stops working if the min is "0"
+                #randomly downsample the subset data
+                Idents(seu.sub.clean) <- biologicalRep
+                set.seed(12)
+                seu.sub.clean <- subset(x = seu.sub.clean, downsample = ds)
+
             }
             
-
             #extract required data for pseudobulk conversion
             if(cnts){
+
                 mat <- seu.sub.clean@assays$RNA@counts
+
             }else{
+
                 mat <- seu.sub.clean@assays$RNA@data
+
             }
             
-            
+            #remove features that have less than 10 cells with a non-zero expression value
             if(lowFilter){
+
                 mat <- mat[rowSums(mat > 1) >= 10, ]
+
             }
             
+            #extract data needed to make pseudobulk matrix
             bioRep <- as.data.frame(seu.sub.clean@meta.data[[biologicalRep]])
             colnames(bioRep) <- "cellSource"
             row.names(bioRep) <- colnames(seu.sub.clean)
@@ -1228,57 +1335,76 @@ createPB <- function(seu.obj = NULL, groupBy = "clusterID_sub", comp = "cellSour
             #use custom function to convert to pseudobulk
             pbj <- getPb(mat, bioRep)
             
+            #optionally exclude features from conversion (HBM, PPBP, MT-, RPS- are feats to consider excluding)
             if(!is.null(featsTOexclude)){
-                pbj <- pbj[!rownames(pbj) %in% featsTOexclude,]
+
+                pbj <- pbj[!rownames(pbj) %in% featsTOexclude, ]
+            
             }
-        
-            #remove genes with 50% "0" values
-            #need to add code here
         
             #log the number of reps included
             if(length(colnames(pbj))-1 != ztest){
-                message <- paste("The following replicates were used for psudobluk conversion: ",as.list(colnames(pbj)), sep = "")
-                print(message)
+
+                msg <- paste0("The following replicates were used for psudobluk conversion: ", as.list(colnames(pbj)))
+                message(msg)
+
             } else {
-                message <- "All replicates were used for psudobluk conversion"
-                print(message)
+                
+                msg <- "All replicates were used for psudobluk conversion"
+                message(msg)
+
             }
             
-            outfile <- paste(outDir,x,"_pb_matrix.csv", sep = "")
-            write.csv(pbj, file = outfile)
+            #save the matrix
+            write.csv(pbj, file = paste0(outDir, x, "_pb_matrix.csv"))
+
         } else {
-            message <- paste("Unable to downsample cluster: ",x," due to insufficent cell numbers", sep = "")
-            print(message)
+
+            msg <- paste0("Unable to downsample cluster: ", x, " due to insufficent cell numbers")
+            message(msg)
+
         } 
-        return(z) 
+        
+        return(z)
+        
     })
-    
+ 
+    #collect the metadata
     df <- do.call(rbind, test)
     
-    csvOut <- paste(outDir,groupBy ,"_deg_metaData.csv", sep = "")
+    #save the metadata 
+    csvOut <- paste0(outDir,groupBy ,"_deg_metaData.csv")
     write.csv(df, file = csvOut)
 }
                        
 ############ pseudoDEG ############
+
 # contrast will be idents.1_NAME vs idents.2_NAME !!!
-pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "", outName = "", idents.1_NAME = NULL, idents.2_NAME = NULL, returnDDS = F,
-                     inDir = "", title = "", fromFile = T, meta = NULL, pbj = NULL, returnVolc = F, paired = F, pairBy = "", minimalOuts = F, saveSigRes = T, topn=c(20,20),
-                     filterTerm = "^ENSCAF", addLabs = NULL, mkDir = F, dwnCol = "blue", stblCol = "grey",upCol = "red", labSize = 3
+pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, 
+                      outDir = "", outName = "", idents.1_NAME = NULL, idents.2_NAME = NULL, returnDDS = F,
+                      inDir = "", title = "", fromFile = T, meta = NULL, pbj = NULL, returnVolc = F, 
+                      paired = F, pairBy = "", minimalOuts = F, saveSigRes = T, topn=c(20,20),
+                      filterTerm = "^ENSCAF", addLabs = NULL, mkDir = F, 
+                      dwnCol = "blue", stblCol = "grey",upCol = "red", labSize = 3
                      ){
+
     if(fromFile){
+
         files <- list.files(path = inDir, pattern="pb_matrix.csv", all.files=FALSE,full.names=FALSE)
         clusters <- unname(sapply(files, function(x) {unlist(strsplit(x, split = "_pb_"))[1]}))
-        outfileBase <- paste(outDir, outName, "_cluster_", sep = "")
+        outfileBase <- paste0(outDir, outName, "_cluster_")
+
     }else{
+
         clusters <- outName
         outfileBase <- outDir
+
     }
-        
 
     lapply(clusters, function(x) {
         if(fromFile){
-            inFile <- paste(inDir, x,"_pb_matrix.csv", sep = "")
-            pbj <- read.csv(file = inFile, row.names = 1) #will likely want to remove alll rbc/platlet related genes
+            inFile <- paste0(inDir, x,"_pb_matrix.csv")
+            pbj <- read.csv(file = inFile, row.names = 1)
             pbj <- pbj[!apply(pbj==0, 1, all),]
 
             meta <- read.csv(file = metaPWD, row.names = 1)
@@ -1286,34 +1412,42 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
         }
         
         if(mkDir){
-            outDir <- paste(outDir, "/", x, "/", sep = "")
+            outDir <- paste0(outDir, "/", x, "/")
             dir.create(outDir)
-            outfileBase <- paste(outDir, outName, "_cluster_", sep = "")
+            outfileBase <- paste0(outDir, outName, "_cluster_")
             }
         
         if(paired){
+
             dds <- DESeqDataSetFromMatrix(round(pbj), 
-                                          colData = meta, ### add pt meta data here
-                                          design = formula(paste("~ groupID + ",noquote(pairBy), sep = "")))
+                                          colData = meta,
+                                          design = formula(paste0("~ groupID + ",noquote(pairBy))))
+
         }else{
+
             dds <- DESeqDataSetFromMatrix(round(pbj), 
-                                          colData = meta, ### add pt meta data here
+                                          colData = meta,
                                           design = ~ groupID)
+
         }
         
         if(returnDDS){
+
             return(dds)
+
         }
         
-        #transforma and plot the data with PCA
+        #transform and plot the data with PCA
         rld <- varianceStabilizingTransformation(dds, blind=TRUE)
+
         if(!minimalOuts){
-            outfile <- paste(outfileBase, x,"_pca.png", sep = "")
+
+            outfile <- paste0(outfileBase, x,"_pca.png")
             print(outfile)
             p <- DESeq2::plotPCA(rld, intgroup = "groupID")
             ggsave(outfile, width = 7, height = 7)
             
-            outfile <- paste(outfileBase, x,"_pca2.png", sep = "")
+            outfile <- paste0(outfileBase, x,"_pca2.png")
             p <- DESeq2::plotPCA(rld, intgroup = "sampleID")
             ggsave(outfile, width = 7, height = 7)
             
@@ -1325,7 +1459,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
         rld_cor <- cor(rld_mat)
 
         if(!minimalOuts){
-            outfile <- paste(outfileBase, x,"_pheatmap.png", sep = "")
+            outfile <- paste0(outfileBase, x,"_pheatmap.png")
             p <- pheatmap::pheatmap(rld_cor)
             ggsave(p, file = outfile)
         }
@@ -1373,7 +1507,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             sig_res$gs_base <- toupper(x)
             
             write.csv(sig_res,
-                      file = paste(outfileBase, x,"_all_genes.csv", sep = ""),
+                      file = paste0(outfileBase, x,"_all_genes.csv"),
                       quote = FALSE,
                       row.names = FALSE)
         }
@@ -1400,7 +1534,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             
             #plot with ggplot2
             if(!minimalOuts){
-                outfile <- paste(outfileBase, x,"_genePlot.png", sep = "")
+                outfile <- paste0(outfileBase, x,"_genePlot.png")
                 p <- ggplot(gathered_top20_sig) +
                 geom_point(aes(x = gene, 
                                y = normalized_counts, 
@@ -1429,7 +1563,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             heat_colors <- brewer.pal(6, "YlOrRd")
 
 #             if(!minimalOuts){
-#                 outfile <- paste(outfileBase, x,"_pheatmapComp.png", sep = "")
+#                 outfile <- paste0(outfileBase, x,"_pheatmapComp.png")
 #                 p <- pheatmap(sig_norm[ , 2:length(colnames(sig_norm))], 
 #                               color = heat_colors, 
 #                               cluster_rows = FALSE, 
@@ -1463,11 +1597,11 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             cntUp <- nrow(res[which(res$log2FoldChange > lfcCut & res$padj < padj_cutoff),])
             cntDwn <- nrow(res[which(res$log2FoldChange < -lfcCut & res$padj < padj_cutoff),])
 
-            outfile <- paste(outfileBase, x,"_volcano.png", sep = "")
+            outfile <- paste0(outfileBase, x,"_volcano.png")
             
             if(fromFile){
                 if(is.null(title)){
-                    title <- paste(idents.1_NAME, " vs ",idents.2_NAME, "within", x, sep="")
+                    title <- paste0(idents.1_NAME, " vs ",idents.2_NAME, "within", x)
                 }
             }
             
@@ -1482,7 +1616,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             labs(x="log2(fold change)",
                  y="-log10(padj)",
                  title=title) + 
-            scale_color_manual(values=c("Down" = dwnCol, "Stable" = stblCol,"Up" = upCol), labels=c(paste("Down (", cntDwn,")", sep = ""), "Stable", paste("Up (", cntUp,")", sep = ""))) +
+            scale_color_manual(values=c("Down" = dwnCol, "Stable" = stblCol,"Up" = upCol), labels=c(paste0("Down (", cntDwn,")"), "Stable", paste0("Up (", cntUp,")"))) +
             theme_bw() +
             theme(plot.title = element_text(size = 20, hjust=0.5), 
                   legend.position = "right", 
@@ -1526,7 +1660,7 @@ btwnClusDEG <- function(seu.obj = NULL,groupBy = "majorID_sub", idents.1 = NULL,
     }
 
     if(is.null(title)){
-        title <- paste(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME))
+        title <- paste0(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME))
     }
     seu.sub$compare <- ifelse(grepl(grepTerm, seu.sub@meta.data[[groupBy]]), "idents.1", "idents.2")
     
@@ -1555,7 +1689,7 @@ btwnClusDEG <- function(seu.obj = NULL,groupBy = "majorID_sub", idents.1 = NULL,
     ds <- min(z$nCell)
 
     if(dwnSam){
-    message <- paste("Downsampling at a level of ", ds, " cells per replicate", sep = "")
+    message <- paste0("Downsampling at a level of ", ds, " cells per replicate")
     print(message)
         
     #randomly downsample the subset data
@@ -1586,11 +1720,11 @@ btwnClusDEG <- function(seu.obj = NULL,groupBy = "majorID_sub", idents.1 = NULL,
     if(doLinDEG == T){
         seu.sub.clean$compareLinDEG <- ifelse(grepl(grepTerm, seu.sub.clean@meta.data$clusterID), "idents.1", "idents.2")
         seu.sub.clean$groupz <- "cellz"
-        linDEG(seu.obj = seu.sub.clean, threshold = 1, thresLine = T, groupBy = "groupz", comparision = "compareLinDEG", outDir = outDir, outName = paste(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME), sep = ""), colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = T
+        linDEG(seu.obj = seu.sub.clean, threshold = 1, thresLine = T, groupBy = "groupz", comparison = "compareLinDEG", outDir = outDir, outName = paste0(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME)), colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = T
               )
     }
     print(meta)
-    p <- pseudoDEG(padj_cutoff = padj_cutoff, lfcCut = lfcCut, outName = paste(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME), sep = ""), 
+    p <- pseudoDEG(padj_cutoff = padj_cutoff, lfcCut = lfcCut, outName = paste0(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME)), 
               outDir = outDir, title = title, fromFile = F, meta = meta, pbj = pbj, returnVolc = returnVolc, paired = paired, pairBy = "bioRepPair",
                    idents.1_NAME = idents.1_NAME, idents.2_NAME = idents.2_NAME, minimalOuts = T, saveSigRes = T, addLabs = addLabs, topn = topn, dwnCol = dwnCol, stblCol = stblCol,upCol = upCol, labSize = labSize
                      )    
@@ -1631,7 +1765,7 @@ volcFromFM <- function(seu.obj = NULL, padj_cutoff = 0.01, lfcCut = 0.58, title 
                                                  )
     
     
-    outfile <- paste(outDir, title,"_volcano.png", sep = "")
+    outfile <- paste0(outDir, title,"_volcano.png")
 
     p <- ggplot(data = res_table_thres, 
                 aes(x = avg_log2FC, 
@@ -1646,9 +1780,9 @@ volcFromFM <- function(seu.obj = NULL, padj_cutoff = 0.01, lfcCut = 0.58, title 
     #ylim(c(0, 3)) +
     labs(x="log2(fold change)",
          y="-log10(padj)",
-         title=title) + #paste("Differential expression (",idents.1_NAME ," vs ",idents.2_NAME ,")", sep = "")
-    #scale_colour_discrete(labels=c(paste("Down (", cntDwn,")", sep = ""), "Stable", paste("Up (", cntUp,")", sep = ""))) + 
-    scale_color_manual(values=c("Down" = "blue", "Stable" = "grey","Up" = "red"), labels=c(paste("Down (", cntDwn,")", sep = ""), "Stable", paste("Up (", cntUp,")", sep = ""))) +
+         title=title) + #paste0("Differential expression (",idents.1_NAME ," vs ",idents.2_NAME ,")")
+    #scale_colour_discrete(labels=c(paste0("Down (", cntDwn,")"), "Stable", paste0("Up (", cntUp,")"))) + 
+    scale_color_manual(values=c("Down" = "blue", "Stable" = "grey","Up" = "red"), labels=c(paste0("Down (", cntDwn,")"), "Stable", paste0("Up (", cntUp,")"))) +
     theme_bw() +
     theme(plot.title = element_text(size = 20), 
           legend.position = "right", 
@@ -1686,7 +1820,7 @@ vilnPlots <- function(seu.obj = NULL, inFile = NULL, groupBy = "clusterID", numO
         }     
         
         if (outputGeneList == TRUE){
-            outfile <- paste(outDir, outName, "_gene_list.csv", sep = "")
+            outfile <- paste0(outDir, outName, "_gene_list.csv")
             write.csv(cluster.markers, file = outfile)
         }  
         
@@ -1709,7 +1843,7 @@ vilnPlots <- function(seu.obj = NULL, inFile = NULL, groupBy = "clusterID", numO
                 features = rev(plotList)
             )
 
-            outfile <- paste(outDir, outName, "_", x, "_top", numOfFeats, "_vlnPlot.png", sep = "") 
+            outfile <- paste0(outDir, outName, "_", x, "_top", numOfFeats, "_vlnPlot.png") 
             png(file = outfile, width=2520, height=1460)
 
             print(seurat.vlnplot)
@@ -1749,7 +1883,7 @@ singleR <- function(seu.obj = NULL, outName = "", clusters = "clusterID", outDir
         
         #Visualize cell labels
         p <- DimPlot(seu.obj, reduction = "umap", group.by = ref_name, label = TRUE)
-        ggsave(filename = paste(outDir,outName,"_",ref_name, ".png", sep = ""), plot = p, width = 10, height = 7)
+        ggsave(filename = paste0(outDir,outName,"_",ref_name, ".png"), plot = p, width = 10, height = 7)
     })
 }
     
@@ -2196,7 +2330,7 @@ createCIBERsort <- function(seu.obj = NULL, groupBy = NULL, downSample = F, outD
         pbj <- t(t(pbj)/colSums(pbj))*1e6
     }
     
-    outfile <- paste(outDir,outName,"_ciberSort_matrix.csv", sep = "")
+    outfile <- paste0(outDir,outName,"_ciberSort_matrix.csv")
     write.csv(pbj, file = outfile,quote=T)
     
 }
@@ -2211,7 +2345,7 @@ sankeyPlot <- function(seu_obj = NULL, new.ident = NULL, old.ident = "clusterID"
 
     #get node data
     new <- levels(seu_obj@active.ident)
-    new <- paste("S", new, sep="")
+    new <- paste0("S", new)
     nodeNum <- length(unique(seu.obj@meta.data[[old.ident]])) + length(levels(seu_obj@active.ident)) - 1
     nodes <- data.frame(node = c(0:nodeNum), 
                         name = c(as.character(sort(as.numeric(unique(seu.obj@meta.data[[old.ident]])))), new))
@@ -2227,8 +2361,8 @@ sankeyPlot <- function(seu_obj = NULL, new.ident = NULL, old.ident = "clusterID"
     data <- seu_obj_data %>% make_long(Initial, SubCluster)
 
     #prefix sub clusters with "S"
-    data$next_node <- ifelse(!is.na(data$next_node),paste("S",data$next_node,sep=""),NA)
-    data <- data %>% mutate(node = ifelse(x == "SubCluster",paste("S",node,sep=""),node))
+    data$next_node <- ifelse(!is.na(data$next_node),paste0("S",data$next_node),NA)
+    data <- data %>% mutate(node = ifelse(x == "SubCluster",paste0("S",node, sep=""),node))
 
     #order the groups so they are colored appropriately
     data$node <- factor(data$node, levels = nodes$name)
