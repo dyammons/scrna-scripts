@@ -336,6 +336,8 @@ Excerpt provided here.
 experiment <- "pbmc_analysis_20231129"
 outName <- "allCells"
 
+contrast <- c("Osteosarcoma", "Healthy") #first term VS second term
+
 #set QC thresholds
 nFeature_RNA_high <- 5500
 nFeature_RNA_low <- 100
