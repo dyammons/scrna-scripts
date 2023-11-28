@@ -1,8 +1,7 @@
 # Repository for preliminary analysis of single-cell RNA sequencing data using R 
-This repository contains the instructions to create the expected directory structure, pull down a Singularity container, and to run a Seurat pipeline that will integrate multiple samples into one dataset.
-Purpose: facilitate the generation of uniform preliminary analysis across projects and promote an understanding of the computational steps involved in scRNA-seq analysis.  
+This repository contains the instructions to create the expected directory structure, pull down a Singularity container, and to run a Seurat pipeline that will integrate multiple samples into one dataset.  
 
-<br>
+Purpose: facilitate the generation of uniform preliminary analysis across projects and promote an understanding of the computational steps involved in scRNA-seq analysis.  
 
 
 ## Order of operations:
@@ -20,9 +19,9 @@ To use this repository, you will need to clone the repo to your working space, p
 
 
 ## Set up the directory structure and get scripts
-There are several ways to clone the repository we will be using today (including through GitHub Desktop), but here is the command to do it through a linux terminal.  
+There are several ways to clone the repository (including through GitHub Desktop), but for today we will be using Git command line.  
 
-A general note: If working on Alpine, it would be ideal to clone this to a `Peta Library allocation`, but if that is not available `Scratch` or `Projects` directories will also work. If using `Scratch` please note that data is deleted every 90 days, so you will need to complete regular backups and if using `Projects` there is limited storage, so there may not be sufficient room to complete the analysis.  
+A general note: If working on Alpine, it would be ideal to clone this to a `Peta Library allocation`, but if that is not available `Scratch` or `Projects` directories will also work. If using `Scratch` please note that data is deleted every 90 days, so you will need to complete regular backups and if using `Projects` there is limited storage (250 GB), so there may not be sufficient room to complete the analysis.  
 
 For the purposes of today we will be working in `scratch` in a directory called `scrna-analysis`.
 
@@ -50,7 +49,8 @@ cd scrna-scripts
 
 For ease of creating the required output directories the [`build_dir.sh`](./build_dir.sh) file is provided. This short script will generate the necessary output directories and subfolders for each major cell type.  
 
-For this script you can enter multiple arguments where each argument is the name of cell subtype. Note: you can always add more later by rerunning this script
+For this script you can enter multiple arguments where each argument is the name of cell subtype.  
+Note: you can always add more later by rerunning this script
 
 ```sh
 #run to create dir structure for "allCells"
@@ -241,8 +241,10 @@ With the input in place we are nearly ready to get the code running! The next st
 So, let's pull it down from Syslabs.
 
 ```sh
-#move into the scripts dir and pull down the sif
+#move into the scripts dir
 cd ../scrna-scripts/
+
+#pull down the sif
 singularity pull --arch amd64 library://dyammons/r-env/r4.3.1-seurat:v1
 ```
 
@@ -263,7 +265,10 @@ apptainer remote use SylabsCloud
 <br>
 
 ```sh
-cd scrna-scripts/
+#move into the scripts dir
+cd ../scrna-scripts/
+
+#copy the sif
 cp /scratch/alpine/dyammons@colostate.edu/dump/scrna-scripts/r4.3.1-seurat_v1.sif .
 ```
 
@@ -276,7 +281,7 @@ cp /scratch/alpine/dyammons@colostate.edu/dump/scrna-scripts/r4.3.1-seurat_v1.si
 
 Let's make sure we can enter the container and that the software is accessible for our use.  
 
-To do this we will launch a `shell` to enter the container. This is very similar to what `conda activate env` would do if you are familiar with `conda`.
+To do this we will launch a `shell` to enter the container. This is very similar to what `conda activate env` if you are familiar with `conda`.
 
 ```sh
 #it is important to bind (-B) a directory at least 1 level up from the scripts folder
@@ -310,7 +315,7 @@ load10x(din = "../input/", dout = "../output/s1/", outName = "qc_test", testQC =
 
 We can now use our file navigator panel to inspect the QC plots (`../output/s1`).
 
-View the files and decide on thresholds.  
+Now we can view the files and decide on thresholds.  
 
 I recommend to err on the side of caution and set them permissively as we can always go back and increase the stringency later on.
 
@@ -347,9 +352,11 @@ Lastly, we will enter in some metadata that will be used to colorize the samples
 
 To do this we will open the `./metaData/refColz.csv` in a text editor and modify it as desired.  
 
-The columns `orig.ident` should exactly match the samples names as defined in the `input` sub-directories. The `name` column can be anything you want, typically a short hand for the sample name.
+* `orig.ident` values should exactly match the samples names as defined in the `input` sub-directories
+* `name` values can be anything you want, typically a short hand for the sample name
+* delete extra/unused rows
 
-Once the values are entered in the Rscript and the metadata is entered we are ready to run the preliminary script. So, let's exit the container and prepare the `.sbatch` file.
+Once the values are entered in the `R script` and the `metadata` is entered we are ready to run the preliminary script. So, let's exit the container and prepare the `.sbatch` file.
 
 ```r
 #quit the R session
@@ -369,9 +376,9 @@ exit
 
 Open `cute_seurat.sbatch` in a text editor and modify it as desired.
 Key parts to modify are:
- * `ntasks` the current default it set to 10. This worked will for 6 samples, may need to scale up running more samples.
+ * `ntasks` the current default it set to 10. This worked will for 6 samples, may need to scale up running more samples
  * `time` 2 hours should be good, but if running > 10 samples, may want to increase
- * `mail-user` change this one to your email so I don't get a notification that you ran a job (unless you want me to know)
+ * `mail-user` change this to your email so I don't get a notification that you ran a job (unless you want me to know)
 
 <details><summary>Show script</summary>
 

@@ -531,7 +531,7 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL,
     seu.integrated.obj <- FindClusters(object = seu.integrated.obj, algorithm = algorithm, resolution = final.res)
 
     #choose appropriate clustering resolution
-    res <- paste0(prefix, final.res,sep = "") 
+    res <- paste0(prefix, final.res) 
     seu.integrated.obj <- SetIdent(object = seu.integrated.obj, value = res)
     
     #run UMAP
@@ -576,7 +576,7 @@ dataVisUMAP <- function(file = NULL, seu.obj = NULL,
 
 
 ############ indReClus ############
-#adopteed from final post on Dec 4, 2021  at https://github.com/satijalab/seurat/issues/1883
+#adopted from final post on Dec 4, 2021  at https://github.com/satijalab/seurat/issues/1883
 indReClus <- function(seu.obj = NULL, seu.list = NULL,
                       preSub = F, group.by = NULL, sub = NULL, 
                       outDir = "", subName = "",  
@@ -1105,7 +1105,7 @@ vilnSplitComp <- function(seu.obj = NULL, groupBy = "clusterID", refVal = "cellS
         cluster.markers <- FindMarkers(seu.obj, ident.1 = comp1,  ident.2 = comp2, min.pct = 0, logfc.threshold = 0.5) 
         
         if(saveGeneList){
-            outfile <- paste(outDir, outName,"_", x,"geneList.csv", sep = "")
+            outfile <- paste0(outDir, outName,"_", x,"geneList.csv")
             cluster.markers$cellType <- x
             write.csv(cluster.markers, file = outfile)
         }
@@ -1130,7 +1130,7 @@ vilnSplitComp <- function(seu.obj = NULL, groupBy = "clusterID", refVal = "cellS
         )
   
         if(saveOut){
-            outfile <- paste(outDir, outName,"_", x,"_top",nPlots,"_comp_vlnPlot.png", sep = "") 
+            outfile <- paste0(outDir, outName,"_", x,"_top",nPlots,"_comp_vlnPlot.png") 
             png(file = outfile, width=2520, height=1460)
         
             print(seurat.vlnplot)
@@ -1198,7 +1198,7 @@ vilnSplitCompxGene <- function(seu.obj = NULL, groupBy = "clusterID_sub", comp =
                  ) & theme(axis.text.x = element_blank())
         
         if(save == T){
-            outfile <- paste(outDir, outName,"_", x,"_comp_vlnPlot.png", sep = "") 
+            outfile <- paste0(outDir, outName,"_", x,"_comp_vlnPlot.png") 
             ggsave(plot = p, outfile, height = height, width = width) 
         }
         
@@ -1227,89 +1227,106 @@ vilnSplitCompxGene <- function(seu.obj = NULL, groupBy = "clusterID_sub", comp =
 
 ############ getPB ############
 
-#define the function
 #where bioRep == annotation vector cell & orig.ident data (with levels for each patient)
 getPb <- function(mat.sparse, bioRep) {
-   mat.summary <- do.call(cbind, lapply(levels(bioRep$cellSource), function(rep) {
-     cells <- row.names(bioRep)[bioRep$cellSource==rep]
-     pseudobulk <- Matrix::rowSums(mat.sparse[,cells])
-     return(pseudobulk)
-   }))
-    
-   colnames(mat.summary) <- levels(bioRep$cellSource)
+
+    #extract count sums for each cell within a biological replicate
+    collapsedCnts <- lapply(levels(bioRep$cellSource), function(rep){
+        
+        cells <- row.names(bioRep)[bioRep$cellSource == rep]
+        pseudobulk <- Matrix::rowSums(mat.sparse[ ,cells])
+
+        return(pseudobulk)
+        
+        })
+
+    #bind the values for each sample and add the column names
+    mat.summary <- do.call(cbind, collapsedCnts)
+    colnames(mat.summary) <- levels(bioRep$cellSource)
+
    return(mat.summary)
 }
                        
 ############ createPB ############
 
 createPB <- function(seu.obj = NULL, groupBy = "clusterID_sub", comp = "cellSource", biologicalRep = "orig.ident",
-                     clusters = NULL, outDir = "", min.cell = 25, lowFilter = F, dwnSam =T, featsTOexclude = NULL, cnts = T,
-                     grepTerm = NULL, grepLabel = NULL#improve - fix this so it is more functional
+                     clusters = NULL, outDir = "", min.cell = 5, lowFilter = TRUE, dwnSam = FALSE, featsTOexclude = NULL, cnts = TRUE
+                    #  , grepTerm = NULL, grepLabel = NULL #improve - fix this so it is more functional -- DONE 11.27.2023
                     ){
 
-
+    #set active.ident to the level to loop by
     Idents(seu.obj) <- groupBy
     
     #extract number of biological replicates in the grouping system
     ztest <- dim(table(seu.obj@meta.data[[biologicalRep]]))
     
-    groupz <- ifelse(is.null(clusters),levels(seu.obj),list(clusters)) #improve - fix this so you can choose not to run the conversion on all samples...
-    #loop though all the groups
-    test <- lapply(levels(seu.obj), function(x) {
-        
+    #if specific clusters no provied, loop through all levels in active.ident
+    groupz <- ifelse(is.null(clusters), levels(seu.obj), list(clusters))
+
+    #loop though all levels of active.ident
+    test <- lapply(levels(seu.obj), function(x){
+
         #subset the data by group
         seu.sub <- subset(seu.obj, idents = x)
-        
-        #determine value to downsample by and extract metadata - uses bioRep with lowest number of cells > "25"
+
+        #determine value to downsample by and extract metadata - uses bioRep with lowest number of cells > "5"
         z <- table(seu.sub@meta.data[[biologicalRep]])
-        z <- z[z>min.cell]
+        z <- z[z > min.cell]
         zKeep <- names(z)
 
         if(length(zKeep) >= 0.5*ztest){
         
-            #remove samples that have insufficent cell numbers then normalize the data
+            #remove samples that have insufficent cell numbers then normalize the data (normalization is not needed)
             Idents(seu.sub) <- biologicalRep
             seu.sub.clean <- subset(seu.sub, idents = zKeep)
             seu.sub.clean <- NormalizeData(seu.sub.clean)
     
-            
             seu.sub.clean@meta.data[[biologicalRep]] <- as.factor(seu.sub.clean@meta.data[[biologicalRep]])
             seu.sub.clean@meta.data[[biologicalRep]] <- droplevels(seu.sub.clean@meta.data[[biologicalRep]])
             
-            
-            z <- table(seu.sub.clean@meta.data[[biologicalRep]])
+            z <- table(seu.sub.clean@meta.data[[biologicalRep]], seu.sub.clean@meta.data[[comp]]) %>% melt() %>% filter(value != 0)
             
             #extract and save metadata in a data.frame
             z <- as.data.frame(z)
-            colnames(z) <- c("sampleID", "nCell")
+            colnames(z) <- c("sampleID", "groupID", "nCell")
             z$clusterID <- toString(x) #add clusterID value
-            z$groupID <- ifelse(grepl(grepTerm, z$sampleID), grepLabel[1], grepLabel[2]) #fix this - hardcoded and will only work for PBMCs improve this
-    
-            ds <- min(z$nCell[z$nCell > min.cell])
+            # z$groupID <- ifelse(grepl(grepTerm, z$sampleID), grepLabel[1], grepLabel[2]) #fix this - hardcoded and will only work for PBMCs improve this
 
+            #down sampling is not necissary, some people reccomend it, but I now reccomend skipping this (default)
             if(dwnSam){
-            message <- paste("Downsampling cluster: ", x," at a level of ", ds, " cells per replicate", sep = "")
-            print(message)
+
+                #identitfy sample with fewest number of cells
+                ds <- min(z$nCell[z$nCell > min.cell])
+
+                msg <- paste0("Downsampling cluster: ", x," at a level of ", ds, " cells per replicate.")
+                message(msg)
         
-            #randomly downsample the subset data
-            Idents(seu.sub.clean) <- biologicalRep
-            set.seed(12)
-            seu.sub.clean <- subset(x = seu.sub.clean, downsample = ds) #works, but stops working if the min is "0"
+                #randomly downsample the subset data
+                Idents(seu.sub.clean) <- biologicalRep
+                set.seed(12)
+                seu.sub.clean <- subset(x = seu.sub.clean, downsample = ds)
+
             }
             
-
             #extract required data for pseudobulk conversion
             if(cnts){
+
                 mat <- seu.sub.clean@assays$RNA@counts
+
             }else{
+
                 mat <- seu.sub.clean@assays$RNA@data
+
             }
             
-            
+            #remove features that have less than 10 cells with a non-zero expression value
             if(lowFilter){
+
                 mat <- mat[rowSums(mat > 1) >= 10, ]
+
             }
             
+            #extract data needed to make pseudobulk matrix
             bioRep <- as.data.frame(seu.sub.clean@meta.data[[biologicalRep]])
             colnames(bioRep) <- "cellSource"
             row.names(bioRep) <- colnames(seu.sub.clean)
@@ -1318,57 +1335,76 @@ createPB <- function(seu.obj = NULL, groupBy = "clusterID_sub", comp = "cellSour
             #use custom function to convert to pseudobulk
             pbj <- getPb(mat, bioRep)
             
+            #optionally exclude features from conversion (HBM, PPBP, MT-, RPS- are feats to consider excluding)
             if(!is.null(featsTOexclude)){
-                pbj <- pbj[!rownames(pbj) %in% featsTOexclude,]
+
+                pbj <- pbj[!rownames(pbj) %in% featsTOexclude, ]
+            
             }
-        
-            #remove genes with 50% "0" values
-            #need to add code here
         
             #log the number of reps included
             if(length(colnames(pbj))-1 != ztest){
-                message <- paste("The following replicates were used for psudobluk conversion: ",as.list(colnames(pbj)), sep = "")
-                print(message)
+
+                msg <- paste0("The following replicates were used for psudobluk conversion: ", as.list(colnames(pbj)))
+                message(msg)
+
             } else {
-                message <- "All replicates were used for psudobluk conversion"
-                print(message)
+                
+                msg <- "All replicates were used for psudobluk conversion"
+                message(msg)
+
             }
             
-            outfile <- paste(outDir,x,"_pb_matrix.csv", sep = "")
-            write.csv(pbj, file = outfile)
+            #save the matrix
+            write.csv(pbj, file = paste0(outDir, x, "_pb_matrix.csv"))
+
         } else {
-            message <- paste("Unable to downsample cluster: ",x," due to insufficent cell numbers", sep = "")
-            print(message)
+
+            msg <- paste0("Unable to downsample cluster: ", x, " due to insufficent cell numbers")
+            message(msg)
+
         } 
-        return(z) 
+        
+        return(z)
+        
     })
-    
+ 
+    #collect the metadata
     df <- do.call(rbind, test)
     
-    csvOut <- paste(outDir,groupBy ,"_deg_metaData.csv", sep = "")
+    #save the metadata 
+    csvOut <- paste0(outDir,groupBy ,"_deg_metaData.csv")
     write.csv(df, file = csvOut)
 }
                        
 ############ pseudoDEG ############
+
 # contrast will be idents.1_NAME vs idents.2_NAME !!!
-pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "", outName = "", idents.1_NAME = NULL, idents.2_NAME = NULL, returnDDS = F,
-                     inDir = "", title = "", fromFile = T, meta = NULL, pbj = NULL, returnVolc = F, paired = F, pairBy = "", minimalOuts = F, saveSigRes = T, topn=c(20,20),
-                     filterTerm = "^ENSCAF", addLabs = NULL, mkDir = F, dwnCol = "blue", stblCol = "grey",upCol = "red", labSize = 3
+pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, 
+                      outDir = "", outName = "", idents.1_NAME = NULL, idents.2_NAME = NULL, returnDDS = F,
+                      inDir = "", title = "", fromFile = T, meta = NULL, pbj = NULL, returnVolc = F, 
+                      paired = F, pairBy = "", minimalOuts = F, saveSigRes = T, topn=c(20,20),
+                      filterTerm = "^ENSCAF", addLabs = NULL, mkDir = F, 
+                      dwnCol = "blue", stblCol = "grey",upCol = "red", labSize = 3
                      ){
+
     if(fromFile){
+
         files <- list.files(path = inDir, pattern="pb_matrix.csv", all.files=FALSE,full.names=FALSE)
         clusters <- unname(sapply(files, function(x) {unlist(strsplit(x, split = "_pb_"))[1]}))
-        outfileBase <- paste(outDir, outName, "_cluster_", sep = "")
+        outfileBase <- paste0(outDir, outName, "_cluster_")
+
     }else{
+
         clusters <- outName
         outfileBase <- outDir
+
     }
-        
 
     lapply(clusters, function(x) {
         if(fromFile){
-            inFile <- paste(inDir, x,"_pb_matrix.csv", sep = "")
-            pbj <- read.csv(file = inFile, row.names = 1) #will likely want to remove alll rbc/platlet related genes
+            inFile <- paste0(inDir, x,"_pb_matrix.csv")
+            pbj <- read.csv(file = inFile, row.names = 1)
             pbj <- pbj[!apply(pbj==0, 1, all),]
 
             meta <- read.csv(file = metaPWD, row.names = 1)
@@ -1376,34 +1412,42 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
         }
         
         if(mkDir){
-            outDir <- paste(outDir, "/", x, "/", sep = "")
+            outDir <- paste0(outDir, "/", x, "/")
             dir.create(outDir)
-            outfileBase <- paste(outDir, outName, "_cluster_", sep = "")
+            outfileBase <- paste0(outDir, outName, "_cluster_")
             }
         
         if(paired){
+
             dds <- DESeqDataSetFromMatrix(round(pbj), 
-                                          colData = meta, ### add pt meta data here
-                                          design = formula(paste("~ groupID + ",noquote(pairBy), sep = "")))
+                                          colData = meta,
+                                          design = formula(paste0("~ groupID + ",noquote(pairBy))))
+
         }else{
+
             dds <- DESeqDataSetFromMatrix(round(pbj), 
-                                          colData = meta, ### add pt meta data here
+                                          colData = meta,
                                           design = ~ groupID)
+
         }
         
         if(returnDDS){
+
             return(dds)
+
         }
         
-        #transforma and plot the data with PCA
+        #transform and plot the data with PCA
         rld <- varianceStabilizingTransformation(dds, blind=TRUE)
+
         if(!minimalOuts){
-            outfile <- paste(outfileBase, x,"_pca.png", sep = "")
+
+            outfile <- paste0(outfileBase, x,"_pca.png")
             print(outfile)
             p <- DESeq2::plotPCA(rld, intgroup = "groupID")
             ggsave(outfile, width = 7, height = 7)
             
-            outfile <- paste(outfileBase, x,"_pca2.png", sep = "")
+            outfile <- paste0(outfileBase, x,"_pca2.png")
             p <- DESeq2::plotPCA(rld, intgroup = "sampleID")
             ggsave(outfile, width = 7, height = 7)
             
@@ -1415,7 +1459,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
         rld_cor <- cor(rld_mat)
 
         if(!minimalOuts){
-            outfile <- paste(outfileBase, x,"_pheatmap.png", sep = "")
+            outfile <- paste0(outfileBase, x,"_pheatmap.png")
             p <- pheatmap::pheatmap(rld_cor)
             ggsave(p, file = outfile)
         }
@@ -1463,7 +1507,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             sig_res$gs_base <- toupper(x)
             
             write.csv(sig_res,
-                      file = paste(outfileBase, x,"_all_genes.csv", sep = ""),
+                      file = paste0(outfileBase, x,"_all_genes.csv"),
                       quote = FALSE,
                       row.names = FALSE)
         }
@@ -1490,7 +1534,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             
             #plot with ggplot2
             if(!minimalOuts){
-                outfile <- paste(outfileBase, x,"_genePlot.png", sep = "")
+                outfile <- paste0(outfileBase, x,"_genePlot.png")
                 p <- ggplot(gathered_top20_sig) +
                 geom_point(aes(x = gene, 
                                y = normalized_counts, 
@@ -1519,7 +1563,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             heat_colors <- brewer.pal(6, "YlOrRd")
 
 #             if(!minimalOuts){
-#                 outfile <- paste(outfileBase, x,"_pheatmapComp.png", sep = "")
+#                 outfile <- paste0(outfileBase, x,"_pheatmapComp.png")
 #                 p <- pheatmap(sig_norm[ , 2:length(colnames(sig_norm))], 
 #                               color = heat_colors, 
 #                               cluster_rows = FALSE, 
@@ -1553,11 +1597,11 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             cntUp <- nrow(res[which(res$log2FoldChange > lfcCut & res$padj < padj_cutoff),])
             cntDwn <- nrow(res[which(res$log2FoldChange < -lfcCut & res$padj < padj_cutoff),])
 
-            outfile <- paste(outfileBase, x,"_volcano.png", sep = "")
+            outfile <- paste0(outfileBase, x,"_volcano.png")
             
             if(fromFile){
                 if(is.null(title)){
-                    title <- paste(idents.1_NAME, " vs ",idents.2_NAME, "within", x, sep="")
+                    title <- paste0(idents.1_NAME, " vs ",idents.2_NAME, "within", x)
                 }
             }
             
@@ -1572,7 +1616,7 @@ pseudoDEG <- function(metaPWD = "", padj_cutoff = 0.1, lfcCut = 0.58, outDir = "
             labs(x="log2(fold change)",
                  y="-log10(padj)",
                  title=title) + 
-            scale_color_manual(values=c("Down" = dwnCol, "Stable" = stblCol,"Up" = upCol), labels=c(paste("Down (", cntDwn,")", sep = ""), "Stable", paste("Up (", cntUp,")", sep = ""))) +
+            scale_color_manual(values=c("Down" = dwnCol, "Stable" = stblCol,"Up" = upCol), labels=c(paste0("Down (", cntDwn,")"), "Stable", paste0("Up (", cntUp,")"))) +
             theme_bw() +
             theme(plot.title = element_text(size = 20, hjust=0.5), 
                   legend.position = "right", 
@@ -1616,7 +1660,7 @@ btwnClusDEG <- function(seu.obj = NULL,groupBy = "majorID_sub", idents.1 = NULL,
     }
 
     if(is.null(title)){
-        title <- paste(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME))
+        title <- paste0(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME))
     }
     seu.sub$compare <- ifelse(grepl(grepTerm, seu.sub@meta.data[[groupBy]]), "idents.1", "idents.2")
     
@@ -1645,7 +1689,7 @@ btwnClusDEG <- function(seu.obj = NULL,groupBy = "majorID_sub", idents.1 = NULL,
     ds <- min(z$nCell)
 
     if(dwnSam){
-    message <- paste("Downsampling at a level of ", ds, " cells per replicate", sep = "")
+    message <- paste0("Downsampling at a level of ", ds, " cells per replicate")
     print(message)
         
     #randomly downsample the subset data
@@ -1676,11 +1720,11 @@ btwnClusDEG <- function(seu.obj = NULL,groupBy = "majorID_sub", idents.1 = NULL,
     if(doLinDEG == T){
         seu.sub.clean$compareLinDEG <- ifelse(grepl(grepTerm, seu.sub.clean@meta.data$clusterID), "idents.1", "idents.2")
         seu.sub.clean$groupz <- "cellz"
-        linDEG(seu.obj = seu.sub.clean, threshold = 1, thresLine = T, groupBy = "groupz", comparison = "compareLinDEG", outDir = outDir, outName = paste(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME), sep = ""), colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = T
+        linDEG(seu.obj = seu.sub.clean, threshold = 1, thresLine = T, groupBy = "groupz", comparison = "compareLinDEG", outDir = outDir, outName = paste0(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME)), colUp = "red", colDwn = "blue", subtitle = T, returnUpList = F, returnDwnList = F, forceReturn = T
               )
     }
     print(meta)
-    p <- pseudoDEG(padj_cutoff = padj_cutoff, lfcCut = lfcCut, outName = paste(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME), sep = ""), 
+    p <- pseudoDEG(padj_cutoff = padj_cutoff, lfcCut = lfcCut, outName = paste0(gsub(" ", "_", idents.1_NAME), "_vs_",gsub(" ", "_",idents.2_NAME)), 
               outDir = outDir, title = title, fromFile = F, meta = meta, pbj = pbj, returnVolc = returnVolc, paired = paired, pairBy = "bioRepPair",
                    idents.1_NAME = idents.1_NAME, idents.2_NAME = idents.2_NAME, minimalOuts = T, saveSigRes = T, addLabs = addLabs, topn = topn, dwnCol = dwnCol, stblCol = stblCol,upCol = upCol, labSize = labSize
                      )    
@@ -1721,7 +1765,7 @@ volcFromFM <- function(seu.obj = NULL, padj_cutoff = 0.01, lfcCut = 0.58, title 
                                                  )
     
     
-    outfile <- paste(outDir, title,"_volcano.png", sep = "")
+    outfile <- paste0(outDir, title,"_volcano.png")
 
     p <- ggplot(data = res_table_thres, 
                 aes(x = avg_log2FC, 
@@ -1736,9 +1780,9 @@ volcFromFM <- function(seu.obj = NULL, padj_cutoff = 0.01, lfcCut = 0.58, title 
     #ylim(c(0, 3)) +
     labs(x="log2(fold change)",
          y="-log10(padj)",
-         title=title) + #paste("Differential expression (",idents.1_NAME ," vs ",idents.2_NAME ,")", sep = "")
-    #scale_colour_discrete(labels=c(paste("Down (", cntDwn,")", sep = ""), "Stable", paste("Up (", cntUp,")", sep = ""))) + 
-    scale_color_manual(values=c("Down" = "blue", "Stable" = "grey","Up" = "red"), labels=c(paste("Down (", cntDwn,")", sep = ""), "Stable", paste("Up (", cntUp,")", sep = ""))) +
+         title=title) + #paste0("Differential expression (",idents.1_NAME ," vs ",idents.2_NAME ,")")
+    #scale_colour_discrete(labels=c(paste0("Down (", cntDwn,")"), "Stable", paste0("Up (", cntUp,")"))) + 
+    scale_color_manual(values=c("Down" = "blue", "Stable" = "grey","Up" = "red"), labels=c(paste0("Down (", cntDwn,")"), "Stable", paste0("Up (", cntUp,")"))) +
     theme_bw() +
     theme(plot.title = element_text(size = 20), 
           legend.position = "right", 
@@ -1776,7 +1820,7 @@ vilnPlots <- function(seu.obj = NULL, inFile = NULL, groupBy = "clusterID", numO
         }     
         
         if (outputGeneList == TRUE){
-            outfile <- paste(outDir, outName, "_gene_list.csv", sep = "")
+            outfile <- paste0(outDir, outName, "_gene_list.csv")
             write.csv(cluster.markers, file = outfile)
         }  
         
@@ -1799,7 +1843,7 @@ vilnPlots <- function(seu.obj = NULL, inFile = NULL, groupBy = "clusterID", numO
                 features = rev(plotList)
             )
 
-            outfile <- paste(outDir, outName, "_", x, "_top", numOfFeats, "_vlnPlot.png", sep = "") 
+            outfile <- paste0(outDir, outName, "_", x, "_top", numOfFeats, "_vlnPlot.png") 
             png(file = outfile, width=2520, height=1460)
 
             print(seurat.vlnplot)
@@ -1839,7 +1883,7 @@ singleR <- function(seu.obj = NULL, outName = "", clusters = "clusterID", outDir
         
         #Visualize cell labels
         p <- DimPlot(seu.obj, reduction = "umap", group.by = ref_name, label = TRUE)
-        ggsave(filename = paste(outDir,outName,"_",ref_name, ".png", sep = ""), plot = p, width = 10, height = 7)
+        ggsave(filename = paste0(outDir,outName,"_",ref_name, ".png"), plot = p, width = 10, height = 7)
     })
 }
     
@@ -2286,7 +2330,7 @@ createCIBERsort <- function(seu.obj = NULL, groupBy = NULL, downSample = F, outD
         pbj <- t(t(pbj)/colSums(pbj))*1e6
     }
     
-    outfile <- paste(outDir,outName,"_ciberSort_matrix.csv", sep = "")
+    outfile <- paste0(outDir,outName,"_ciberSort_matrix.csv")
     write.csv(pbj, file = outfile,quote=T)
     
 }
@@ -2301,7 +2345,7 @@ sankeyPlot <- function(seu_obj = NULL, new.ident = NULL, old.ident = "clusterID"
 
     #get node data
     new <- levels(seu_obj@active.ident)
-    new <- paste("S", new, sep="")
+    new <- paste0("S", new)
     nodeNum <- length(unique(seu.obj@meta.data[[old.ident]])) + length(levels(seu_obj@active.ident)) - 1
     nodes <- data.frame(node = c(0:nodeNum), 
                         name = c(as.character(sort(as.numeric(unique(seu.obj@meta.data[[old.ident]])))), new))
@@ -2317,8 +2361,8 @@ sankeyPlot <- function(seu_obj = NULL, new.ident = NULL, old.ident = "clusterID"
     data <- seu_obj_data %>% make_long(Initial, SubCluster)
 
     #prefix sub clusters with "S"
-    data$next_node <- ifelse(!is.na(data$next_node),paste("S",data$next_node,sep=""),NA)
-    data <- data %>% mutate(node = ifelse(x == "SubCluster",paste("S",node,sep=""),node))
+    data$next_node <- ifelse(!is.na(data$next_node),paste0("S",data$next_node),NA)
+    data <- data %>% mutate(node = ifelse(x == "SubCluster",paste0("S",node, sep=""),node))
 
     #order the groups so they are colored appropriately
     data$node <- factor(data$node, levels = nodes$name)

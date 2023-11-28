@@ -95,7 +95,7 @@ seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/refColz.csv", grou
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/refColz.csv", groupBy = "name", metaAdd = "colz")
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/refColz.csv", groupBy = "name", metaAdd = "cellSource")
 
-outName <-  "allCells"
+outName <-  outName
 exptName <- experiment
 
 
@@ -222,7 +222,9 @@ ggsave(paste0("../output/", outName, "/", outName, "_stackedBar.png"), width =7,
 # singleR(seu.obj = seu.obj, outName = outName, clusters = "clusterID", outDir = "../output/singleR/")
 
 
-### Frequency plots to run stats - uncomment colz to add colz when loaded
+####### UNNOTE FOR ADDITIONAL MULTI-CONDITION ANALYSIS #######
+
+# ### Frequency plots to run stats - uncomment colz to add colz when loaded
 # freqy <- freqPlots(seu.obj, method = 1, nrow = 3, 
 #                    comp = "cellSource", groupBy = "clusterID", legTitle = "Cell source", refVal = "name",
 #                    namez = "name" #, 
@@ -231,15 +233,15 @@ ggsave(paste0("../output/", outName, "/", outName, "_stackedBar.png"), width =7,
 # ggsave(paste0("../output/", outName, "/",outName, "_freqPlots.png"), width = 12, height = 8)
 
 
-### Complete linDEG in pseudobulk-type format by all cells
+# ### Complete linDEG in pseudobulk-type format by all cells
 # seu.obj$allCells <- "All cells"
 # seu.obj$allCells <- as.factor(seu.obj$allCells)
 # linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "allCells", comparison = "cellSource", 
 #        outDir = "../output/linDEG/", outName = outName, colUp = "red", colDwn = "blue",subtitle = F)
 
 
-### Complete pseudobulk DGE by all cells
-# createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologicalRep = "name", lowFilter = T, dwnSam =F, 
+# ### Complete pseudobulk DGE by all cells
+# createPB(seu.obj = seu.obj, groupBy = "allCells", comp = "cellSource", biologicalRep = "name", lowFilter = T, dwnSam = F, 
 #          clusters = NULL, outDir = "../output/allCells/pseudoBulk/", 
 #          grepTerm = "H", grepLabel = c("Healthy","Disease") # be sure to change this!
 # )
@@ -253,10 +255,12 @@ ggsave(paste0("../output/", outName, "/", outName, "_stackedBar.png"), width =7,
 # )
 
 
-### Complete linDEG in each cluster
+# ### Complete linDEG in each cluster
 # linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "clusterID", comparison = "cellSource", 
 #        outDir = "../output/linDEG/", outName = "clusters", colUp = "red", colDwn = "blue",subtitle = F)
 
+
+####### END UNNOTE FOR ADDITIONAL MULTI-CONDITION ANALYSIS #######
 
 ### Or complete linDEG in each major group
 # linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "majorID", comparison = "cellSource", 
