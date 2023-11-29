@@ -91,7 +91,7 @@ ggsave(paste0("../output/allCells/", experiment, "_QC_feats.png"), width = 9, he
 #################################
 
 #either load in the processed data from the s3 directory (if started a new session)
-# seu.obj <- readRDS("../output/s3/_S3.rds") # point to output of dataVisUMAP
+# seu.obj <- readRDS("../output/s3/pbmc_analysis_20231129_res0.6_dims45_dist0.2_neigh25_S3.rds") # point to output of dataVisUMAP
 # seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/colorID.csv", groupBy = "clusterID", metaAdd = "majorID")
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/refColz.csv", groupBy = "orig.ident", metaAdd = "name")
 seu.obj <- loadMeta(seu.obj = seu.obj, metaFile = "./metaData/refColz.csv", groupBy = "name", metaAdd = "colz")
@@ -239,7 +239,7 @@ ggsave(paste0("../output/", outName, "/",outName, "_freqPlots.png"), width = 12,
 seu.obj$allCells <- "All cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "allCells", comparison = "cellSource", 
-       outDir = "../output/linDEG/", outName = outName, colUp = "red", colDwn = "blue",subtitle = F)
+       outDir = paste0("../output/", outName, "/linDEG/", outName = outName, colUp = "red", colDwn = "blue",subtitle = F)
 
 
 ### Complete pseudobulk DGE by all cells
@@ -258,7 +258,7 @@ pseudoDEG(metaPWD = "../output/allCells/pseudoBulk/allCells_deg_metaData.csv",
 
 ### Complete linDEG in each cluster
 linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "clusterID", comparison = "cellSource", 
-       outDir = paste0("../output/", outName, "/linDEG/", outName = "clusters", colUp = "red", colDwn = "blue",subtitle = F)
+       outDir = paste0("../output/", outName, "/linDEG/"), outName = "clusters", colUp = "red", colDwn = "blue", subtitle = F)
 
 
 ####### END UNNOTE FOR ADDITIONAL MULTI-CONDITION ANALYSIS #######
