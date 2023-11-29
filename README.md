@@ -256,6 +256,11 @@ singularity pull --arch amd64 library://dyammons/r-env/r4.3.1-seurat:v1
 #establish the connection to syslabs
 apptainer remote add --no-login SylabsCloud cloud.sycloud.io
 apptainer remote use SylabsCloud
+
+export APPTAINER_CACHEDIR=/scratch/alpine/$USER/cache/
+export APPTAINER_TMPDIR=/scratch/alpine/$USER/tmp/
+export SINGULARITY_CACHEDIR=/scratch/alpine/$USER/cache/
+export SINGULARITY_TMPDIR=/scratch/alpine/$USER/tmp/
 ```
 
 </details>
