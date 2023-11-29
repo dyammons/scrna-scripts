@@ -141,6 +141,8 @@ cp -r /scratch/alpine/dyammons@colostate.edu/dump/input/* .
 
 </details>
 
+<br>
+
 #### It is best to avoid moving files manually, so here is the approach I commonly use.
 
 ```sh
