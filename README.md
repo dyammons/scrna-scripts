@@ -274,7 +274,7 @@ export SINGULARITY_TMPDIR=/scratch/alpine/$USER/tmp/
 cd ../scrna-scripts/
 
 #copy the sif
-cp /scratch/alpine/dyammons@colostate.edu/dump/scrna-scripts/r4.3.1-seurat_v1.sif .
+cp /scratch/alpine/dyammons@colostate.edu/scrna-analysis-done/scrna-scripts/r4.3.1-seurat_v1.sif .
 ```
 
 </details>
