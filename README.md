@@ -155,7 +155,7 @@ Create a string array that contains the sample names.
 
 ```sh
 #indicate path to directory containing the output files
-path=/scratch/alpine/$USER/project_01/02_scripts
+path=/scratch/alpine/$USER/project_scrna_01/02_scripts
 
 #set string array with names of dirs you want to get data from
 dirs=$( ls -l $path | grep "^d" | awk '{print $9}' )
