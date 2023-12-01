@@ -239,7 +239,7 @@ ggsave(paste0("../output/", outName, "/",outName, "_freqPlots.png"), width = 12,
 seu.obj$allCells <- "All cells"
 seu.obj$allCells <- as.factor(seu.obj$allCells)
 linDEG(seu.obj = seu.obj, threshold = 1, thresLine = F, groupBy = "allCells", comparison = "cellSource", 
-       outDir = paste0("../output/", outName, "/linDEG/", outName = outName, colUp = "red", colDwn = "blue",subtitle = F)
+       outDir = paste0("../output/", outName, "/linDEG/"), outName = outName, colUp = "red", colDwn = "blue",subtitle = F)
 
 
 ### Complete pseudobulk DGE by all cells
