@@ -7,7 +7,7 @@
 export CBDATAROOT='../output/cb_input/'
 
 outDir="../output/cb_output/"
-cmd1="cbBuild -i ./cellbrowser.conf -o ${outDir}" #use this if you have more than 1 subset
+cmd1="cbBuild -i ./cellbrowser.conf -o ${outDir}" #use this if you have 1 subset
 # cmd1="cbBuild -r -i ./cellbrowser.conf -o ${outDir}" #use this if you have more than 1 subset
 
 #generate configs:
